@@ -64,3 +64,23 @@ SQLite at `data/gifts.db`. Key tables: `sessions` (channel connections), `gifts`
 - THB conversion: `coins / 4` (approximate creator earnings)
 - Image cache: avatars at `data/cache/avatars/{username}.webp`, gifts at `data/cache/gifts/{giftId}.webp`
 - DB migrations use `ALTER TABLE` wrapped in empty catch blocks for idempotency
+- Global `cursor: pointer` on all buttons/links/selects via App.css
+
+## Deployment (Production)
+
+Deployed at **https://haanhaan.com** on VPS `43.229.150.41` (Ubuntu 24.04).
+
+- **App path:** `/var/www/haanhaan.com/app/`
+- **PM2 process:** `tiktok-live` on port 3100
+- **Nginx:** reverse proxy for `/api/`, `/socket.io/`, `/cache/` → port 3100; serves React build from `client/dist/`
+- **SSL:** Let's Encrypt via certbot
+- **SSH:** `sshinspace` alias (`ssh chawilai@43.229.150.41`)
+
+**Deploy update:**
+```bash
+sshinspace
+cd /var/www/haanhaan.com/app
+git pull
+cd client && npm run build && cd ..
+pm2 restart tiktok-live
+```
