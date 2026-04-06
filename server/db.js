@@ -103,4 +103,21 @@ export function fetchLeaderboard() {
   return getLeaderboard.all();
 }
 
+const getPopularGifts = db.prepare(`
+  SELECT
+    gift_name as giftName,
+    gift_id as giftId,
+    diamond_count as diamondCount,
+    SUM(repeat_count) as totalCount,
+    SUM(diamond_count * repeat_count) as totalCoins
+  FROM gifts
+  GROUP BY gift_id
+  ORDER BY totalCoins DESC
+  LIMIT 10
+`);
+
+export function fetchPopularGifts() {
+  return getPopularGifts.all();
+}
+
 export default db;

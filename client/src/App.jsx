@@ -5,6 +5,7 @@ import LiveEmbed from "./components/LiveEmbed.jsx";
 import StatsCards from "./components/StatsCards.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import GiftLog from "./components/GiftLog.jsx";
+import PopularGifts from "./components/PopularGifts.jsx";
 
 export default function App() {
   const socketRef = useRef(null);
@@ -12,6 +13,7 @@ export default function App() {
   const [gifts, setGifts] = useState([]);
   const [stats, setStats] = useState({ allTime: { totalGifts: 0, totalCoins: 0 }, session: { totalGifts: 0, totalCoins: 0 } });
   const [leaderboard, setLeaderboard] = useState([]);
+  const [popularGifts, setPopularGifts] = useState([]);
 
   useEffect(() => {
     const socket = io();
@@ -28,6 +30,7 @@ export default function App() {
       });
       fetchStats();
       fetchLeaderboard();
+      fetchPopularGifts();
     });
 
     // Streak in progress — update existing streak row or add new one
@@ -53,6 +56,7 @@ export default function App() {
     fetchGifts();
     fetchStats();
     fetchLeaderboard();
+    fetchPopularGifts();
 
     return () => socket.disconnect();
   }, []);
@@ -71,6 +75,7 @@ export default function App() {
   })))).catch(() => {});
   const fetchStats = () => fetch("/api/stats").then(r => r.json()).then(setStats).catch(() => {});
   const fetchLeaderboard = () => fetch("/api/leaderboard").then(r => r.json()).then(setLeaderboard).catch(() => {});
+  const fetchPopularGifts = () => fetch("/api/popular-gifts").then(r => r.json()).then(setPopularGifts).catch(() => {});
 
   const handleConnect = useCallback(async (username) => {
     const res = await fetch("/api/connect", {
@@ -104,6 +109,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
           <LiveEmbed username={status.username} connected={status.connected} roomInfo={status.roomInfo} />
+          <PopularGifts entries={popularGifts} />
         </div>
 
         <div className="lg:col-span-2 space-y-6">

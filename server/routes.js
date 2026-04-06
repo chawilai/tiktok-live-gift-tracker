@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchGifts, fetchStats, fetchLeaderboard } from "./db.js";
+import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts } from "./db.js";
 import { getStatus } from "./tiktok.js";
 
 const router = Router();
@@ -21,6 +21,10 @@ router.get("/stats", (req, res) => {
 
 router.get("/leaderboard", (req, res) => {
   res.json(fetchLeaderboard());
+});
+
+router.get("/popular-gifts", (req, res) => {
+  res.json(fetchPopularGifts());
 });
 
 export default router;
