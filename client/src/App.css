@@ -25,3 +25,11 @@
 .glow-border {
   box-shadow: 0 0 10px var(--color-neon-cyan), 0 0 20px rgba(34, 211, 238, 0.2);
 }
+
+button, a, select, [role="button"] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
