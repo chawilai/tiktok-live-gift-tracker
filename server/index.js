@@ -40,6 +40,7 @@ app.post("/api/connect", async (req, res) => {
           diamondCount: data.diamondCount,
           repeatCount: data.repeatCount,
           profilePic: data.profilePictureUrl,
+          giftPic: data.giftPictureUrl || null,
           sessionId,
         };
 

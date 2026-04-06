@@ -32,6 +32,13 @@ export default function PopularGifts({ entries }) {
             <span className={`font-mono font-bold text-sm w-6 text-center ${RANK_COLORS[i] || "text-slate-500"}`}>
               {i + 1}
             </span>
+            {entry.giftPic ? (
+              <img src={entry.giftPic} alt={entry.giftName} className="w-8 h-8 object-contain" />
+            ) : (
+              <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center text-xs">
+                🎁
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-neon-pink">{entry.giftName}</p>
               <p className="text-xs text-slate-500">{entry.diamondCount} coins/each</p>

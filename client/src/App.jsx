@@ -71,6 +71,7 @@ export default function App() {
     diamondCount: g.diamond_count,
     repeatCount: g.repeat_count,
     profilePic: g.profile_pic,
+    giftPic: g.gift_pic,
     createdAt: g.created_at,
   })))).catch(() => {});
   const fetchStats = () => fetch("/api/stats").then(r => r.json()).then(setStats).catch(() => {});

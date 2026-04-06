@@ -76,7 +76,14 @@ export default function GiftLog({ gifts }) {
                         <span className="truncate max-w-[120px]">{gift.nickname}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-neon-pink font-medium">{gift.giftName}</td>
+                    <td className="px-4 py-2">
+                    <div className="flex items-center gap-1.5">
+                      {gift.giftPic && (
+                        <img src={gift.giftPic} alt="" className="w-5 h-5 object-contain" />
+                      )}
+                      <span className="text-neon-pink font-medium">{gift.giftName}</span>
+                    </div>
+                  </td>
                     <td className="px-4 py-2 text-right font-mono">x{gift.repeatCount}</td>
                     <td className="px-4 py-2 text-right font-mono text-neon-cyan">
                       {totalCoins.toLocaleString()}

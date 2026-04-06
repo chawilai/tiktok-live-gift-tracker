@@ -28,10 +28,18 @@ db.exec(`
     diamond_count INTEGER DEFAULT 0,
     repeat_count INTEGER DEFAULT 1,
     profile_pic TEXT,
+    gift_pic TEXT,
     session_id INTEGER REFERENCES sessions(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+// Migration: add gift_pic column if missing
+try {
+  db.exec("ALTER TABLE gifts ADD COLUMN gift_pic TEXT");
+} catch {
+  // column already exists
+}
 
 const insertSession = db.prepare(
   "INSERT INTO sessions (tiktok_username) VALUES (?)"
@@ -40,8 +48,8 @@ const endSession = db.prepare(
   "UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?"
 );
 const insertGift = db.prepare(`
-  INSERT INTO gifts (username, nickname, gift_name, gift_id, diamond_count, repeat_count, profile_pic, session_id)
-  VALUES (@username, @nickname, @giftName, @giftId, @diamondCount, @repeatCount, @profilePic, @sessionId)
+  INSERT INTO gifts (username, nickname, gift_name, gift_id, diamond_count, repeat_count, profile_pic, gift_pic, session_id)
+  VALUES (@username, @nickname, @giftName, @giftId, @diamondCount, @repeatCount, @profilePic, @giftPic, @sessionId)
 `);
 const getGifts = db.prepare(`
   SELECT * FROM gifts ORDER BY created_at DESC LIMIT ? OFFSET ?
@@ -108,6 +116,7 @@ const getPopularGifts = db.prepare(`
     gift_name as giftName,
     gift_id as giftId,
     diamond_count as diamondCount,
+    gift_pic as giftPic,
     SUM(repeat_count) as totalCount,
     SUM(diamond_count * repeat_count) as totalCoins
   FROM gifts
