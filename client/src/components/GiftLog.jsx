@@ -36,45 +36,57 @@ export default function GiftLog({ gifts }) {
               <th className="px-4 py-2">Gift</th>
               <th className="px-4 py-2 text-right">Count</th>
               <th className="px-4 py-2 text-right">Coins</th>
+              <th className="px-4 py-2 text-right">THB</th>
             </tr>
           </thead>
           <tbody>
             {gifts.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-600">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-600">
                   Waiting for gifts...
                 </td>
               </tr>
             ) : (
-              gifts.map((gift) => (
-                <tr
-                  key={gift.id}
-                  className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition ${
-                    newIds.has(gift.id) ? "gift-row-new" : ""
-                  }`}
-                >
-                  <td className="px-4 py-2 font-mono text-xs text-slate-400">
-                    {formatTime(gift.createdAt)}
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      {gift.profilePic ? (
-                        <img src={gift.profilePic} alt="" className="w-5 h-5 rounded-full" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
-                          {gift.nickname?.charAt(0) || "?"}
-                        </div>
+              gifts.map((gift, idx) => {
+                const isStreak = !gift.id;
+                const totalCoins = gift.diamondCount * gift.repeatCount;
+                const thb = (totalCoins / 4).toFixed(totalCoins >= 4 ? 0 : 2);
+                return (
+                  <tr
+                    key={gift.id || `streak-${gift._streakKey || idx}`}
+                    className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition ${
+                      newIds.has(gift.id) ? "gift-row-new" : ""
+                    } ${isStreak ? "opacity-70" : ""}`}
+                  >
+                    <td className="px-4 py-2 font-mono text-xs text-slate-400">
+                      {formatTime(gift.createdAt)}
+                      {isStreak && (
+                        <span className="ml-1 text-yellow-400 animate-pulse">LIVE</span>
                       )}
-                      <span className="truncate max-w-[120px]">{gift.nickname}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-neon-pink font-medium">{gift.giftName}</td>
-                  <td className="px-4 py-2 text-right font-mono">x{gift.repeatCount}</td>
-                  <td className="px-4 py-2 text-right font-mono text-neon-cyan">
-                    {(gift.diamondCount * gift.repeatCount).toLocaleString()}
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        {gift.profilePic ? (
+                          <img src={gift.profilePic} alt="" className="w-5 h-5 rounded-full" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
+                            {gift.nickname?.charAt(0) || "?"}
+                          </div>
+                        )}
+                        <span className="truncate max-w-[120px]">{gift.nickname}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-neon-pink font-medium">{gift.giftName}</td>
+                    <td className="px-4 py-2 text-right font-mono">x{gift.repeatCount}</td>
+                    <td className="px-4 py-2 text-right font-mono text-neon-cyan">
+                      {totalCoins.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-yellow-400 text-xs">
+                      {thb} ฿
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

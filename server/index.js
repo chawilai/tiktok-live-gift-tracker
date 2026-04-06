@@ -42,6 +42,18 @@ app.post("/api/connect", async (req, res) => {
           profilePic: data.profilePictureUrl,
           sessionId,
         };
+
+        // Streak gifts (giftType === 1): save only on repeatEnd
+        // Non-streak gifts: save immediately
+        const isStreak = data.giftType === 1;
+
+        if (isStreak && !data.repeatEnd) {
+          // Streak in progress — show on UI but don't save to DB yet
+          io.emit("gift:streak", { ...gift, createdAt: new Date().toISOString() });
+          return;
+        }
+
+        // Final streak event or non-streak gift — save to DB
         const id = saveGift(gift);
         io.emit("gift", { id, ...gift, createdAt: new Date().toISOString() });
       },

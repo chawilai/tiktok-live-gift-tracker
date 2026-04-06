@@ -23,6 +23,23 @@ export default function App() {
       fetchLeaderboard();
     });
 
+    // Streak in progress — update the top row in real-time
+    socket.on("gift:streak", (gift) => {
+      setGifts((prev) => {
+        const streakKey = `${gift.username}-${gift.giftId}`;
+        const idx = prev.findIndex(
+          (g) => !g.id && `${g.username}-${g.giftId}` === streakKey
+        );
+        const entry = { ...gift, _streakKey: streakKey };
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = entry;
+          return updated;
+        }
+        return [entry, ...prev].slice(0, 200);
+      });
+    });
+
     socket.on("status", (s) => setStatus(s));
 
     fetchStatus();

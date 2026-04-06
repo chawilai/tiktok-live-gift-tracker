@@ -45,6 +45,7 @@ export default function Leaderboard({ entries }) {
             </div>
             <div className="text-right">
               <p className="text-sm font-mono font-bold text-neon-cyan">{formatCoins(entry.totalCoins)}</p>
+              <p className="text-xs text-yellow-400 font-mono">~{Math.round(entry.totalCoins / 4)} ฿</p>
               <p className="text-xs text-slate-500">{entry.giftCount} gifts</p>
             </div>
           </div>
