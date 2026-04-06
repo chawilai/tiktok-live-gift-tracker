@@ -4,12 +4,14 @@ let connection = null;
 let currentUsername = null;
 let sessionId = null;
 let isConnected = false;
+let roomInfo = null;
 
 export function getStatus() {
   return {
     connected: isConnected,
     username: currentUsername,
     sessionId,
+    roomInfo,
   };
 }
 
@@ -22,12 +24,19 @@ export async function connect(username, { onGift, onChat, onDisconnect, onSessio
   connection = new WebcastPushConnection(username);
 
   try {
-    await connection.connect();
+    const state = await connection.connect();
     isConnected = true;
+    roomInfo = {
+      title: state?.roomInfo?.title || "",
+      viewerCount: state?.roomInfo?.user_count || 0,
+      profilePic: state?.roomInfo?.owner?.avatar_thumb?.url_list?.[0] || null,
+      nickname: state?.roomInfo?.owner?.nickname || username,
+    };
   } catch (err) {
     connection = null;
     currentUsername = null;
     isConnected = false;
+    roomInfo = null;
     throw err;
   }
 
@@ -46,6 +55,7 @@ export async function connect(username, { onGift, onChat, onDisconnect, onSessio
   connection.on("disconnected", () => {
     connection = null;
     isConnected = false;
+    roomInfo = null;
     const oldSessionId = sessionId;
     sessionId = null;
     if (onDisconnect) onDisconnect(oldSessionId);
@@ -70,6 +80,7 @@ export async function disconnect() {
     currentUsername = null;
     sessionId = null;
     isConnected = false;
+    roomInfo = null;
   }
   return oldSessionId;
 }

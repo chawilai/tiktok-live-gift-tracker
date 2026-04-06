@@ -26,7 +26,8 @@ app.post("/api/connect", async (req, res) => {
     await connect(username, {
       onSessionId: (u) => {
         const id = createSession(u);
-        io.emit("status", { connected: true, username: u });
+        const { roomInfo } = getStatus();
+        io.emit("status", { connected: true, username: u, roomInfo });
         return id;
       },
       onGift: (data) => {

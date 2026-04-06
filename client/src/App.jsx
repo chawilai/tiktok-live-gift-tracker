@@ -79,7 +79,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <LiveEmbed username={status.username} connected={status.connected} />
+          <LiveEmbed username={status.username} connected={status.connected} roomInfo={status.roomInfo} />
         </div>
 
         <div className="lg:col-span-2 space-y-6">
