@@ -62,6 +62,16 @@ export default function App() {
       });
     });
 
+    socket.on("channel:viewers", ({ username, viewerCount }) => {
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.username === username && c.roomInfo
+            ? { ...c, roomInfo: { ...c.roomInfo, viewerCount } }
+            : c
+        )
+      );
+    });
+
     // Load existing channels
     fetch("/api/channels").then((r) => r.json()).then((chs) => {
       setChannels(chs);
@@ -192,19 +202,21 @@ export default function App() {
               <div key={ch.username} className="flex items-center">
                 <button
                   onClick={() => { setActiveTab(ch.username); loadChannelData(ch.username); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                  className={`flex flex-col items-start px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
                     activeTab === ch.username
                       ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
                       : "text-slate-400 hover:text-white hover:bg-slate-800"
                   }`}
                 >
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${ch.connected ? "bg-neon-green" : "bg-slate-600"}`} />
-                  @{ch.username}
-                  {ch.connected && (
-                    <span className="flex items-center gap-1.5 ml-1 text-[10px] font-mono">
-                      {viewers > 0 && <span className="text-slate-500">{viewers.toLocaleString()}v</span>}
-                      {coins > 0 && <span className="text-neon-cyan">{coins.toLocaleString()}c</span>}
-                    </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${ch.connected ? "bg-neon-green" : "bg-slate-600"}`} />
+                    @{ch.username}
+                    {ch.connected && viewers > 0 && (
+                      <span className="text-[10px] font-mono text-slate-500">{viewers.toLocaleString()} viewers</span>
+                    )}
+                  </span>
+                  {coins > 0 && (
+                    <span className="text-[10px] font-mono text-neon-cyan ml-3">{coins.toLocaleString()} coins · ~{Math.round(coins / 4)} ฿</span>
                   )}
                 </button>
                 <button

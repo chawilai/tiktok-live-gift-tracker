@@ -98,6 +98,9 @@ app.post("/api/connect", async (req, res) => {
           channel,
         });
       },
+      onViewerUpdate: (count, channel) => {
+        io.emit("channel:viewers", { username: channel, viewerCount: count });
+      },
       onDisconnect: (oldSessionId, channel) => {
         if (oldSessionId) closeSession(oldSessionId);
         io.emit("channel:status", { connected: false, username: channel, sessionId: null, roomInfo: null });
