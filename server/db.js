@@ -15,6 +15,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tiktok_username TEXT NOT NULL,
+    nickname TEXT,
+    profile_pic TEXT,
     started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     ended_at DATETIME
   );
@@ -34,6 +36,9 @@ db.exec(`
   );
 `);
 
+// Migrations
+try { db.exec("ALTER TABLE sessions ADD COLUMN nickname TEXT"); } catch {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN profile_pic TEXT"); } catch {}
 // Migration: add gift_pic column if missing
 try {
   db.exec("ALTER TABLE gifts ADD COLUMN gift_pic TEXT");
@@ -42,7 +47,7 @@ try {
 }
 
 const insertSession = db.prepare(
-  "INSERT INTO sessions (tiktok_username) VALUES (?)"
+  "INSERT INTO sessions (tiktok_username, nickname, profile_pic) VALUES (@username, @nickname, @profilePic)"
 );
 const endSession = db.prepare(
   "UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?"
@@ -80,8 +85,8 @@ const getLeaderboard = db.prepare(`
   LIMIT 10
 `);
 
-export function createSession(tiktokUsername) {
-  const result = insertSession.run(tiktokUsername);
+export function createSession(tiktokUsername, nickname = null, profilePic = null) {
+  const result = insertSession.run({ username: tiktokUsername, nickname, profilePic });
   return result.lastInsertRowid;
 }
 
@@ -250,6 +255,8 @@ export function fetchKnownGifts() {
 const getHistory = db.prepare(`
   SELECT
     s.tiktok_username as username,
+    (SELECT s2.nickname FROM sessions s2 WHERE s2.tiktok_username = s.tiktok_username AND s2.nickname IS NOT NULL ORDER BY s2.id DESC LIMIT 1) as nickname,
+    (SELECT s2.profile_pic FROM sessions s2 WHERE s2.tiktok_username = s.tiktok_username AND s2.profile_pic IS NOT NULL ORDER BY s2.id DESC LIMIT 1) as profilePic,
     COUNT(DISTINCT s.id) as sessionCount,
     MAX(s.started_at) as lastSeen,
     COALESCE(SUM(g.diamond_count * g.repeat_count), 0) as totalCoins,

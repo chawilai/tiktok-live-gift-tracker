@@ -35,7 +35,8 @@ app.post("/api/connect", async (req, res) => {
   try {
     await connectChannel(username, {
       onSessionId: (u) => {
-        const id = createSession(u);
+        const { roomInfo } = getChannelStatus(u);
+        const id = createSession(u, roomInfo?.nickname, roomInfo?.profilePic);
         const status = getChannelStatus(u);
         io.emit("channel:status", status);
         return id;
