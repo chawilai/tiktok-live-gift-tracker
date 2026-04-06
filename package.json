@@ -6,7 +6,8 @@
   "scripts": {
     "dev:server": "node server/index.js",
     "dev:client": "npm run --prefix client dev",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "test": "node --test server/*.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
