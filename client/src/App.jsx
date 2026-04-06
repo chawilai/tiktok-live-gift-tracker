@@ -166,6 +166,17 @@ export default function App() {
     );
   }, []);
 
+  const handleAddTab = useCallback((username) => {
+    username = username.trim().replace("@", "");
+    if (!username) return;
+    setChannels((prev) => {
+      if (prev.some((c) => c.username === username)) return prev;
+      return [...prev, { username, connected: false, sessionId: null, roomInfo: null }];
+    });
+    setActiveTab(username);
+    loadChannelData(username);
+  }, []);
+
   const handleRemoveChannel = (username) => {
     handleDisconnect(username);
     setChannels((prev) => prev.filter((c) => c.username !== username));
@@ -338,11 +349,11 @@ export default function App() {
         </main>
       ) : activeTab === "watchlist" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
-          <Watchlist onAddChannel={handleConnect} />
+          <Watchlist onAddChannel={handleAddTab} />
         </main>
       ) : activeTab === "history" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
-          <History onAddChannel={handleConnect} />
+          <History onAddChannel={handleAddTab} />
         </main>
       ) : activeChannel ? (
         <main className="max-w-7xl mx-auto px-4 py-6">

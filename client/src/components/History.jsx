@@ -47,7 +47,7 @@ export default function History({ onAddChannel }) {
                 onClick={() => onAddChannel(ch.username)}
                 className="bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 rounded-lg px-3 py-1 text-xs font-medium hover:bg-neon-cyan/30 transition shrink-0"
               >
-                Monitor
+                + Add Tab
               </button>
             </div>
           ))}
