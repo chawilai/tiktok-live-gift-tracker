@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist } from "./db.js";
+import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist, fetchHistory } from "./db.js";
 import { WebcastPushConnection } from "tiktok-live-connector";
 import { getChannelStatus } from "./tiktok.js";
 
@@ -66,6 +66,12 @@ router.put("/triggers/:giftId", (req, res) => {
 router.delete("/triggers/:giftId", (req, res) => {
   removeTrigger(parseInt(req.params.giftId));
   res.json({ ok: true });
+});
+
+// --- History ---
+
+router.get("/history", (req, res) => {
+  res.json(fetchHistory());
 });
 
 // --- Watchlist ---

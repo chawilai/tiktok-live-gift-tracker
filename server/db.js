@@ -245,6 +245,25 @@ export function fetchKnownGifts() {
   return getKnownGifts.all();
 }
 
+// --- History ---
+
+const getHistory = db.prepare(`
+  SELECT
+    s.tiktok_username as username,
+    COUNT(DISTINCT s.id) as sessionCount,
+    MAX(s.started_at) as lastSeen,
+    COALESCE(SUM(g.diamond_count * g.repeat_count), 0) as totalCoins,
+    COUNT(g.id) as totalGifts
+  FROM sessions s
+  LEFT JOIN gifts g ON g.session_id = s.id
+  GROUP BY s.tiktok_username
+  ORDER BY lastSeen DESC
+`);
+
+export function fetchHistory() {
+  return getHistory.all();
+}
+
 // --- Watchlist ---
 
 db.exec(`

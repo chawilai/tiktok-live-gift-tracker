@@ -8,6 +8,7 @@ import GiftLog from "./components/GiftLog.jsx";
 import PopularGifts from "./components/PopularGifts.jsx";
 import TriggerSettings from "./components/TriggerSettings.jsx";
 import Watchlist from "./components/Watchlist.jsx";
+import History from "./components/History.jsx";
 
 export default function App() {
   const socketRef = useRef(null);
@@ -284,7 +285,7 @@ export default function App() {
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "triggers" || activeTab === "watchlist"
+                  ["triggers", "watchlist", "history"].includes(activeTab)
                     ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
@@ -316,6 +317,14 @@ export default function App() {
                   >
                     <span>Watchlist</span>
                   </button>
+                  <button
+                    onClick={() => { setActiveTab("history"); setMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
+                      activeTab === "history" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
+                    }`}
+                  >
+                    <span>History</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -330,6 +339,10 @@ export default function App() {
       ) : activeTab === "watchlist" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
           <Watchlist onAddChannel={handleConnect} />
+        </main>
+      ) : activeTab === "history" ? (
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          <History onAddChannel={handleConnect} />
         </main>
       ) : activeChannel ? (
         <main className="max-w-7xl mx-auto px-4 py-6">
