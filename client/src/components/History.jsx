@@ -44,7 +44,7 @@ export default function History({ onAddChannel }) {
                 <p className="text-[10px] text-slate-500">{ch.totalGifts} gifts</p>
               </div>
               <button
-                onClick={() => onAddChannel(ch.username)}
+                onClick={() => onAddChannel(ch.username, true)}
                 className="bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 rounded-lg px-3 py-1 text-xs font-medium hover:bg-neon-cyan/30 transition shrink-0"
               >
                 + Add Tab

@@ -166,14 +166,14 @@ export default function App() {
     );
   }, []);
 
-  const handleAddTab = useCallback((username) => {
+  const handleAddTab = useCallback((username, stayOnPage = false) => {
     username = username.trim().replace("@", "");
     if (!username) return;
     setChannels((prev) => {
       if (prev.some((c) => c.username === username)) return prev;
       return [...prev, { username, connected: false, sessionId: null, roomInfo: null }];
     });
-    setActiveTab(username);
+    if (!stayOnPage) setActiveTab(username);
     loadChannelData(username);
   }, []);
 
