@@ -18,17 +18,24 @@ export default function App() {
     socketRef.current = socket;
 
     socket.on("gift", (gift) => {
-      setGifts((prev) => [gift, ...prev].slice(0, 200));
+      setGifts((prev) => {
+        // Remove the LIVE streak row for this user+gift, replace with final
+        const streakKey = `${gift.username}-${gift.giftId}`;
+        const filtered = prev.filter(
+          (g) => g.id || g._streakKey !== streakKey
+        );
+        return [gift, ...filtered].slice(0, 200);
+      });
       fetchStats();
       fetchLeaderboard();
     });
 
-    // Streak in progress — update the top row in real-time
+    // Streak in progress — update existing streak row or add new one
     socket.on("gift:streak", (gift) => {
       setGifts((prev) => {
         const streakKey = `${gift.username}-${gift.giftId}`;
         const idx = prev.findIndex(
-          (g) => !g.id && `${g.username}-${g.giftId}` === streakKey
+          (g) => !g.id && g._streakKey === streakKey
         );
         const entry = { ...gift, _streakKey: streakKey };
         if (idx >= 0) {
