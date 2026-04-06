@@ -184,7 +184,11 @@ export default function App() {
 
           {/* Channel tabs */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1">
-            {channels.map((ch) => (
+            {channels.map((ch) => {
+              const chData = channelData[ch.username];
+              const viewers = ch.roomInfo?.viewerCount || 0;
+              const coins = chData?.stats?.allTime?.totalCoins || 0;
+              return (
               <div key={ch.username} className="flex items-center">
                 <button
                   onClick={() => { setActiveTab(ch.username); loadChannelData(ch.username); }}
@@ -196,6 +200,12 @@ export default function App() {
                 >
                   <span className={`inline-block w-1.5 h-1.5 rounded-full ${ch.connected ? "bg-neon-green" : "bg-slate-600"}`} />
                   @{ch.username}
+                  {ch.connected && (
+                    <span className="flex items-center gap-1.5 ml-1 text-[10px] font-mono">
+                      {viewers > 0 && <span className="text-slate-500">{viewers.toLocaleString()}v</span>}
+                      {coins > 0 && <span className="text-neon-cyan">{coins.toLocaleString()}c</span>}
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => handleRemoveChannel(ch.username)}
@@ -205,7 +215,8 @@ export default function App() {
                   x
                 </button>
               </div>
-            ))}
+              );
+            })}
 
             {/* Add channel */}
             <div className="flex items-center gap-1 ml-1">
