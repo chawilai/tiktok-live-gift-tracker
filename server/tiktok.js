@@ -39,11 +39,14 @@ export async function connectChannel(username, { onGift, onChat, onDisconnect, o
   try {
     const state = await connection.connect();
     ch.isConnected = true;
+    // roomInfo structure varies — try multiple paths
+    const ri = state?.roomInfo;
+    const data = ri?.data || ri || {};
     ch.roomInfo = {
-      title: state?.roomInfo?.title || "",
-      viewerCount: state?.roomInfo?.user_count || 0,
-      profilePic: state?.roomInfo?.owner?.avatar_thumb?.url_list?.[0] || null,
-      nickname: state?.roomInfo?.owner?.nickname || username,
+      title: data.title || ri?.title || "",
+      viewerCount: data.user_count || data.viewerCount || 0,
+      profilePic: data.owner?.avatar_thumb?.url_list?.[0] || ri?.owner?.avatar_thumb?.url_list?.[0] || null,
+      nickname: data.owner?.nickname || ri?.owner?.nickname || username,
     };
   } catch (err) {
     throw err;
