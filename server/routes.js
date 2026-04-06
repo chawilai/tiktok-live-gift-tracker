@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel } from "./db.js";
+import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist } from "./db.js";
+import { WebcastPushConnection } from "tiktok-live-connector";
 import { getChannelStatus } from "./tiktok.js";
 
 const router = Router();
@@ -65,6 +66,37 @@ router.put("/triggers/:giftId", (req, res) => {
 router.delete("/triggers/:giftId", (req, res) => {
   removeTrigger(parseInt(req.params.giftId));
   res.json({ ok: true });
+});
+
+// --- Watchlist ---
+
+router.get("/watchlist", (req, res) => {
+  res.json(fetchWatchlist());
+});
+
+router.post("/watchlist", (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: "username is required" });
+  addToWatchlist(username.trim().replace("@", ""));
+  res.json({ ok: true });
+});
+
+router.delete("/watchlist/:username", (req, res) => {
+  removeFromWatchlist(req.params.username);
+  res.json({ ok: true });
+});
+
+// Check if a user is currently live
+router.get("/check-live/:username", async (req, res) => {
+  try {
+    const conn = new WebcastPushConnection(req.params.username, { processInitialData: false });
+    await conn.connect();
+    const info = conn.getRoomInfo?.() || {};
+    conn.disconnect();
+    res.json({ live: true, username: req.params.username });
+  } catch {
+    res.json({ live: false, username: req.params.username });
+  }
 });
 
 export default router;

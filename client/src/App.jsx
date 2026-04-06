@@ -7,6 +7,7 @@ import Leaderboard from "./components/Leaderboard.jsx";
 import GiftLog from "./components/GiftLog.jsx";
 import PopularGifts from "./components/PopularGifts.jsx";
 import TriggerSettings from "./components/TriggerSettings.jsx";
+import Watchlist from "./components/Watchlist.jsx";
 
 export default function App() {
   const socketRef = useRef(null);
@@ -14,6 +15,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(null); // username or "triggers"
   const [channelData, setChannelData] = useState({}); // { username: { gifts, stats, leaderboard, popularGifts } }
   const [addInput, setAddInput] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu on click outside
+  useEffect(() => {
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     const socket = io();
@@ -268,17 +278,44 @@ export default function App() {
               </button>
             </div>
 
-            <div className="ml-auto">
+            <div className="ml-auto relative" ref={menuRef}>
               <button
-                onClick={() => setActiveTab("triggers")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "triggers"
+                onClick={() => setMenuOpen((v) => !v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  activeTab === "triggers" || activeTab === "watchlist"
                     ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
               >
-                Triggers
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Settings
+                <svg className={`w-3 h-3 transition ${menuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-1 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                  <button
+                    onClick={() => { setActiveTab("triggers"); setMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
+                      activeTab === "triggers" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
+                    }`}
+                  >
+                    <span>Triggers</span>
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab("watchlist"); setMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
+                      activeTab === "watchlist" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
+                    }`}
+                  >
+                    <span>Watchlist</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -287,6 +324,10 @@ export default function App() {
       {activeTab === "triggers" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
           <TriggerSettings />
+        </main>
+      ) : activeTab === "watchlist" ? (
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          <Watchlist onAddChannel={handleConnect} />
         </main>
       ) : activeChannel ? (
         <main className="max-w-7xl mx-auto px-4 py-6">

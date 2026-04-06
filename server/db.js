@@ -245,4 +245,29 @@ export function fetchKnownGifts() {
   return getKnownGifts.all();
 }
 
+// --- Watchlist ---
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS watchlist (
+    username TEXT PRIMARY KEY,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+const insertWatch = db.prepare("INSERT OR IGNORE INTO watchlist (username) VALUES (?)");
+const deleteWatch = db.prepare("DELETE FROM watchlist WHERE username = ?");
+const getAllWatch = db.prepare("SELECT username FROM watchlist ORDER BY added_at");
+
+export function addToWatchlist(username) {
+  insertWatch.run(username);
+}
+
+export function removeFromWatchlist(username) {
+  deleteWatch.run(username);
+}
+
+export function fetchWatchlist() {
+  return getAllWatch.all().map((r) => r.username);
+}
+
 export default db;
