@@ -1,86 +1,92 @@
 import { WebcastPushConnection } from "tiktok-live-connector";
 
-let connection = null;
-let currentUsername = null;
-let sessionId = null;
-let isConnected = false;
-let roomInfo = null;
+// Map of username → { connection, sessionId, isConnected, roomInfo }
+const channels = new Map();
 
-export function getStatus() {
+export function getChannelStatus(username) {
+  const ch = channels.get(username);
+  if (!ch) return { connected: false, username, sessionId: null, roomInfo: null };
   return {
-    connected: isConnected,
-    username: currentUsername,
-    sessionId,
-    roomInfo,
+    connected: ch.isConnected,
+    username,
+    sessionId: ch.sessionId,
+    roomInfo: ch.roomInfo,
   };
 }
 
-export async function connect(username, { onGift, onChat, onDisconnect, onSessionId }) {
-  if (connection) {
-    await disconnect();
+export function getAllChannels() {
+  const list = [];
+  for (const [username, ch] of channels) {
+    list.push({
+      username,
+      connected: ch.isConnected,
+      sessionId: ch.sessionId,
+      roomInfo: ch.roomInfo,
+    });
+  }
+  return list;
+}
+
+export async function connectChannel(username, { onGift, onChat, onDisconnect, onSessionId }) {
+  // Disconnect existing connection for this username if any
+  if (channels.has(username)) {
+    await disconnectChannel(username);
   }
 
-  currentUsername = username;
-  connection = new WebcastPushConnection(username);
+  const connection = new WebcastPushConnection(username);
+  const ch = { connection, sessionId: null, isConnected: false, roomInfo: null };
 
   try {
     const state = await connection.connect();
-    isConnected = true;
-    roomInfo = {
+    ch.isConnected = true;
+    ch.roomInfo = {
       title: state?.roomInfo?.title || "",
       viewerCount: state?.roomInfo?.user_count || 0,
       profilePic: state?.roomInfo?.owner?.avatar_thumb?.url_list?.[0] || null,
       nickname: state?.roomInfo?.owner?.nickname || username,
     };
   } catch (err) {
-    connection = null;
-    currentUsername = null;
-    isConnected = false;
-    roomInfo = null;
     throw err;
   }
 
+  channels.set(username, ch);
+
   if (onSessionId) {
-    sessionId = onSessionId(username);
+    ch.sessionId = onSessionId(username);
   }
 
   connection.on("gift", (data) => {
-    if (onGift) onGift(data);
+    if (onGift) onGift(data, username);
   });
 
   connection.on("chat", (data) => {
-    if (onChat) onChat(data);
+    if (onChat) onChat(data, username);
   });
 
   connection.on("disconnected", () => {
-    connection = null;
-    isConnected = false;
-    roomInfo = null;
-    const oldSessionId = sessionId;
-    sessionId = null;
-    if (onDisconnect) onDisconnect(oldSessionId);
+    const oldSessionId = ch.sessionId;
+    ch.isConnected = false;
+    ch.roomInfo = null;
+    ch.sessionId = null;
+    if (onDisconnect) onDisconnect(oldSessionId, username);
   });
 
   connection.on("error", (err) => {
-    console.error("TikTok WebSocket error:", err.message);
+    console.error(`TikTok WebSocket error [${username}]:`, err.message);
   });
 
   return { connected: true, username };
 }
 
-export async function disconnect() {
-  const oldSessionId = sessionId;
-  if (connection) {
-    try {
-      connection.disconnect();
-    } catch {
-      // ignore disconnect errors
-    }
-    connection = null;
-    currentUsername = null;
-    sessionId = null;
-    isConnected = false;
-    roomInfo = null;
+export async function disconnectChannel(username) {
+  const ch = channels.get(username);
+  if (!ch) return null;
+  const oldSessionId = ch.sessionId;
+  try {
+    ch.connection.disconnect();
+  } catch {
+    // ignore
   }
+  channels.delete(username);
   return oldSessionId;
 }

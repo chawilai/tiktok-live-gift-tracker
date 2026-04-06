@@ -269,6 +269,7 @@ export default function TriggerSettings() {
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Payload Format (POST JSON)</h3>
         <pre className="text-xs text-slate-400 font-mono bg-slate-900 rounded-lg p-3 overflow-x-auto">{`{
   "timestamp": "2026-04-06T21:30:00.000Z",
+  "channel": "tuenthum",
   "user": "nickname",
   "username": "tiktok_id",
   "giftName": "Rose",

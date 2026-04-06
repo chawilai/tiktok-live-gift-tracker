@@ -10,73 +10,109 @@ import TriggerSettings from "./components/TriggerSettings.jsx";
 
 export default function App() {
   const socketRef = useRef(null);
-  const [status, setStatus] = useState({ connected: false, username: null });
-  const [gifts, setGifts] = useState([]);
-  const [stats, setStats] = useState({ allTime: { totalGifts: 0, totalCoins: 0 }, session: { totalGifts: 0, totalCoins: 0 } });
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [popularGifts, setPopularGifts] = useState([]);
-  const [tab, setTab] = useState("dashboard");
+  const [channels, setChannels] = useState([]); // [{ username, connected, roomInfo, sessionId }]
+  const [activeTab, setActiveTab] = useState(null); // username or "triggers"
+  const [channelData, setChannelData] = useState({}); // { username: { gifts, stats, leaderboard, popularGifts } }
+  const [addInput, setAddInput] = useState("");
 
   useEffect(() => {
     const socket = io();
     socketRef.current = socket;
 
     socket.on("gift", (gift) => {
-      setGifts((prev) => {
+      const ch = gift.channel;
+      setChannelData((prev) => {
+        const d = prev[ch] || { gifts: [], stats: null, leaderboard: [], popularGifts: [] };
         const streakKey = `${gift.username}-${gift.giftId}`;
-        const filtered = prev.filter(
-          (g) => g.id || g._streakKey !== streakKey
-        );
-        return [gift, ...filtered].slice(0, 200);
+        const filtered = d.gifts.filter((g) => g.id || g._streakKey !== streakKey);
+        return { ...prev, [ch]: { ...d, gifts: [gift, ...filtered].slice(0, 200) } };
       });
-      fetchStats();
-      fetchLeaderboard();
-      fetchPopularGifts();
+      fetchChannelStats(ch);
+      fetchChannelLeaderboard(ch);
+      fetchChannelPopularGifts(ch);
     });
 
     socket.on("gift:streak", (gift) => {
-      setGifts((prev) => {
+      const ch = gift.channel;
+      setChannelData((prev) => {
+        const d = prev[ch] || { gifts: [], stats: null, leaderboard: [], popularGifts: [] };
         const streakKey = `${gift.username}-${gift.giftId}`;
-        const idx = prev.findIndex(
-          (g) => !g.id && g._streakKey === streakKey
-        );
+        const idx = d.gifts.findIndex((g) => !g.id && g._streakKey === streakKey);
         const entry = { ...gift, _streakKey: streakKey };
+        let gifts;
         if (idx >= 0) {
-          const updated = [...prev];
-          updated[idx] = entry;
-          return updated;
+          gifts = [...d.gifts];
+          gifts[idx] = entry;
+        } else {
+          gifts = [entry, ...d.gifts].slice(0, 200);
         }
-        return [entry, ...prev].slice(0, 200);
+        return { ...prev, [ch]: { ...d, gifts } };
       });
     });
 
-    socket.on("status", (s) => setStatus(s));
+    socket.on("channel:status", (status) => {
+      setChannels((prev) => {
+        const idx = prev.findIndex((c) => c.username === status.username);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = status;
+          return updated;
+        }
+        return prev;
+      });
+    });
 
-    fetchStatus();
-    fetchGifts();
-    fetchStats();
-    fetchLeaderboard();
-    fetchPopularGifts();
+    // Load existing channels
+    fetch("/api/channels").then((r) => r.json()).then((chs) => {
+      setChannels(chs);
+      if (chs.length > 0 && !activeTab) {
+        setActiveTab(chs[0].username);
+      }
+      chs.forEach((ch) => {
+        if (ch.connected) loadChannelData(ch.username);
+      });
+    });
 
     return () => socket.disconnect();
   }, []);
 
-  const fetchStatus = () => fetch("/api/status").then(r => r.json()).then(setStatus).catch(() => {});
-  const fetchGifts = () => fetch("/api/gifts?limit=200").then(r => r.json()).then(d => setGifts(d.gifts.map(g => ({
-    id: g.id,
-    username: g.username,
-    nickname: g.nickname,
-    giftName: g.gift_name,
-    giftId: g.gift_id,
-    diamondCount: g.diamond_count,
-    repeatCount: g.repeat_count,
-    profilePic: g.profile_pic,
-    giftPic: g.gift_pic,
-    createdAt: g.created_at,
-  })))).catch(() => {});
-  const fetchStats = () => fetch("/api/stats").then(r => r.json()).then(setStats).catch(() => {});
-  const fetchLeaderboard = () => fetch("/api/leaderboard").then(r => r.json()).then(setLeaderboard).catch(() => {});
-  const fetchPopularGifts = () => fetch("/api/popular-gifts").then(r => r.json()).then(setPopularGifts).catch(() => {});
+  const loadChannelData = (username) => {
+    fetchChannelGifts(username);
+    fetchChannelStats(username);
+    fetchChannelLeaderboard(username);
+    fetchChannelPopularGifts(username);
+  };
+
+  const fetchChannelGifts = (ch) =>
+    fetch(`/api/gifts?channel=${ch}&limit=200`).then((r) => r.json()).then((d) =>
+      setChannelData((prev) => ({
+        ...prev,
+        [ch]: {
+          ...(prev[ch] || {}),
+          gifts: d.gifts.map((g) => ({
+            id: g.id, username: g.username, nickname: g.nickname,
+            giftName: g.gift_name, giftId: g.gift_id, diamondCount: g.diamond_count,
+            repeatCount: g.repeat_count, profilePic: g.profile_pic, giftPic: g.gift_pic,
+            createdAt: g.created_at, channel: ch,
+          })),
+        },
+      }))
+    ).catch(() => {});
+
+  const fetchChannelStats = (ch) =>
+    fetch(`/api/stats?channel=${ch}`).then((r) => r.json()).then((stats) =>
+      setChannelData((prev) => ({ ...prev, [ch]: { ...(prev[ch] || {}), stats } }))
+    ).catch(() => {});
+
+  const fetchChannelLeaderboard = (ch) =>
+    fetch(`/api/leaderboard?channel=${ch}`).then((r) => r.json()).then((lb) =>
+      setChannelData((prev) => ({ ...prev, [ch]: { ...(prev[ch] || {}), leaderboard: lb } }))
+    ).catch(() => {});
+
+  const fetchChannelPopularGifts = (ch) =>
+    fetch(`/api/popular-gifts?channel=${ch}`).then((r) => r.json()).then((pg) =>
+      setChannelData((prev) => ({ ...prev, [ch]: { ...(prev[ch] || {}), popularGifts: pg } }))
+    ).catch(() => {});
 
   const handleConnect = useCallback(async (username) => {
     const res = await fetch("/api/connect", {
@@ -84,72 +120,178 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username }),
     });
-    return res.json();
+    const result = await res.json();
+    if (result.connected) {
+      setChannels((prev) => {
+        if (prev.some((c) => c.username === username)) {
+          return prev.map((c) => (c.username === username ? result : c));
+        }
+        return [...prev, result];
+      });
+      setActiveTab(username);
+      loadChannelData(username);
+    }
+    return result;
   }, []);
 
-  const handleDisconnect = useCallback(async () => {
-    const res = await fetch("/api/disconnect", { method: "POST" });
-    return res.json();
+  const handleDisconnect = useCallback(async (username) => {
+    await fetch("/api/disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    setChannels((prev) =>
+      prev.map((c) => (c.username === username ? { ...c, connected: false, roomInfo: null } : c))
+    );
   }, []);
+
+  const handleRemoveChannel = (username) => {
+    handleDisconnect(username);
+    setChannels((prev) => prev.filter((c) => c.username !== username));
+    setChannelData((prev) => {
+      const next = { ...prev };
+      delete next[username];
+      return next;
+    });
+    if (activeTab === username) {
+      setActiveTab(channels.length > 1 ? channels.find((c) => c.username !== username)?.username || "triggers" : "triggers");
+    }
+  };
+
+  const handleAddChannel = () => {
+    const username = addInput.trim().replace("@", "");
+    if (!username) return;
+    if (channels.some((c) => c.username === username)) {
+      setActiveTab(username);
+      setAddInput("");
+      return;
+    }
+    setAddInput("");
+    handleConnect(username);
+  };
+
+  const activeChannel = channels.find((c) => c.username === activeTab);
+  const data = channelData[activeTab] || { gifts: [], stats: null, leaderboard: [], popularGifts: [] };
+  const defaultStats = { allTime: { totalGifts: 0, totalCoins: 0 }, session: { totalGifts: 0, totalCoins: 0 } };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-tight">
-              <span className="text-neon-cyan">TikTok</span> Live Gift Tracker
-            </h1>
-            <nav className="flex gap-1">
+          <h1 className="text-2xl font-bold tracking-tight mb-2">
+            <span className="text-neon-cyan">TikTok</span> Live Gift Tracker
+          </h1>
+
+          {/* Channel tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+            {channels.map((ch) => (
+              <div key={ch.username} className="flex items-center">
+                <button
+                  onClick={() => { setActiveTab(ch.username); loadChannelData(ch.username); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                    activeTab === ch.username
+                      ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${ch.connected ? "bg-neon-green" : "bg-slate-600"}`} />
+                  @{ch.username}
+                </button>
+                <button
+                  onClick={() => handleRemoveChannel(ch.username)}
+                  className="text-slate-600 hover:text-red-400 px-1 text-xs transition"
+                  title="Remove channel"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+
+            {/* Add channel */}
+            <div className="flex items-center gap-1 ml-1">
+              <input
+                type="text"
+                value={addInput}
+                onChange={(e) => setAddInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
+                placeholder="+ username"
+                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-neon-cyan w-28"
+              />
               <button
-                onClick={() => setTab("dashboard")}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
-                  tab === "dashboard"
-                    ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
+                onClick={handleAddChannel}
+                disabled={!addInput.trim()}
+                className="bg-neon-cyan/20 text-neon-cyan rounded-lg px-2 py-1 text-xs hover:bg-neon-cyan/30 transition disabled:opacity-30"
               >
-                Dashboard
+                Add
               </button>
+            </div>
+
+            <div className="ml-auto">
               <button
-                onClick={() => setTab("triggers")}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
-                  tab === "triggers"
+                onClick={() => setActiveTab("triggers")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  activeTab === "triggers"
                     ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
               >
                 Triggers
               </button>
-            </nav>
+            </div>
           </div>
-          <ConnectionBar
-            status={status}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-          />
         </div>
       </header>
 
-      {tab === "dashboard" ? (
-        <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-6">
-            <LiveEmbed username={status.username} connected={status.connected} roomInfo={status.roomInfo} />
-            <PopularGifts entries={popularGifts} />
+      {activeTab === "triggers" ? (
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          <TriggerSettings />
+        </main>
+      ) : activeChannel ? (
+        <main className="max-w-7xl mx-auto px-4 py-6">
+          {/* Connection controls for this channel */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className={`inline-block w-2 h-2 rounded-full ${activeChannel.connected ? "bg-neon-green animate-pulse" : "bg-slate-600"}`} />
+              <span className={activeChannel.connected ? "text-neon-green" : "text-slate-500"}>
+                {activeChannel.connected ? `Connected to @${activeChannel.username}` : `@${activeChannel.username} — Disconnected`}
+              </span>
+            </div>
+            {!activeChannel.connected ? (
+              <button
+                onClick={() => handleConnect(activeChannel.username)}
+                className="bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 rounded-lg px-3 py-1 text-xs font-medium hover:bg-neon-cyan/30 transition"
+              >
+                Connect
+              </button>
+            ) : (
+              <button
+                onClick={() => handleDisconnect(activeChannel.username)}
+                className="bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg px-3 py-1 text-xs font-medium hover:bg-red-500/30 transition"
+              >
+                Disconnect
+              </button>
+            )}
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            <StatsCards stats={stats} />
-            <Leaderboard entries={leaderboard} />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 space-y-6">
+              <LiveEmbed username={activeChannel.username} connected={activeChannel.connected} roomInfo={activeChannel.roomInfo} />
+              <PopularGifts entries={data.popularGifts || []} />
+            </div>
 
-          <div className="lg:col-span-3">
-            <GiftLog gifts={gifts} />
+            <div className="lg:col-span-2 space-y-6">
+              <StatsCards stats={data.stats || defaultStats} />
+              <Leaderboard entries={data.leaderboard || []} />
+            </div>
+
+            <div className="lg:col-span-3">
+              <GiftLog gifts={data.gifts || []} />
+            </div>
           </div>
         </main>
       ) : (
-        <main className="max-w-3xl mx-auto px-4 py-6">
-          <TriggerSettings />
+        <main className="max-w-7xl mx-auto px-4 py-20 text-center">
+          <p className="text-slate-500">Add a TikTok username above to start monitoring</p>
         </main>
       )}
     </div>

@@ -1,30 +1,38 @@
 import { Router } from "express";
-import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger } from "./db.js";
-import { getStatus } from "./tiktok.js";
+import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel } from "./db.js";
+import { getChannelStatus } from "./tiktok.js";
 
 const router = Router();
-
-router.get("/status", (req, res) => {
-  res.json(getStatus());
-});
 
 router.get("/gifts", (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-  res.json(fetchGifts(page, limit));
+  const channel = req.query.channel;
+  if (channel) {
+    res.json(fetchGiftsByChannel(channel, page, limit));
+  } else {
+    res.json(fetchGifts(page, limit));
+  }
 });
 
 router.get("/stats", (req, res) => {
-  const { sessionId } = getStatus();
-  res.json(fetchStats(sessionId));
+  const channel = req.query.channel;
+  if (channel) {
+    const { sessionId } = getChannelStatus(channel);
+    res.json(fetchStatsByChannel(channel, sessionId));
+  } else {
+    res.json(fetchStats(null));
+  }
 });
 
 router.get("/leaderboard", (req, res) => {
-  res.json(fetchLeaderboard());
+  const channel = req.query.channel;
+  res.json(channel ? fetchLeaderboardByChannel(channel) : fetchLeaderboard());
 });
 
 router.get("/popular-gifts", (req, res) => {
-  res.json(fetchPopularGifts());
+  const channel = req.query.channel;
+  res.json(channel ? fetchPopularGiftsByChannel(channel) : fetchPopularGifts());
 });
 
 // --- Triggers ---

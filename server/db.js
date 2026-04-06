@@ -129,6 +129,61 @@ export function fetchPopularGifts() {
   return getPopularGifts.all();
 }
 
+// --- Channel-filtered queries ---
+
+const getGiftsByChannel = db.prepare(`
+  SELECT g.* FROM gifts g
+  JOIN sessions s ON g.session_id = s.id
+  WHERE s.tiktok_username = ?
+  ORDER BY g.created_at DESC LIMIT ? OFFSET ?
+`);
+const getGiftCountByChannel = db.prepare(`
+  SELECT COUNT(*) as count FROM gifts g
+  JOIN sessions s ON g.session_id = s.id
+  WHERE s.tiktok_username = ?
+`);
+const getStatsByChannel = db.prepare(`
+  SELECT COUNT(*) as totalGifts, COALESCE(SUM(g.diamond_count * g.repeat_count), 0) as totalCoins
+  FROM gifts g JOIN sessions s ON g.session_id = s.id
+  WHERE s.tiktok_username = ?
+`);
+const getLeaderboardByChannel = db.prepare(`
+  SELECT g.nickname, g.username, g.profile_pic as profilePic,
+    SUM(g.diamond_count * g.repeat_count) as totalCoins, COUNT(*) as giftCount
+  FROM gifts g JOIN sessions s ON g.session_id = s.id
+  WHERE s.tiktok_username = ?
+  GROUP BY g.username ORDER BY totalCoins DESC LIMIT 10
+`);
+const getPopularGiftsByChannel = db.prepare(`
+  SELECT g.gift_name as giftName, g.gift_id as giftId, g.diamond_count as diamondCount,
+    g.gift_pic as giftPic, SUM(g.repeat_count) as totalCount,
+    SUM(g.diamond_count * g.repeat_count) as totalCoins
+  FROM gifts g JOIN sessions s ON g.session_id = s.id
+  WHERE s.tiktok_username = ?
+  GROUP BY g.gift_id ORDER BY totalCoins DESC LIMIT 10
+`);
+
+export function fetchGiftsByChannel(channel, page = 1, limit = 50) {
+  const offset = (page - 1) * limit;
+  const gifts = getGiftsByChannel.all(channel, limit, offset);
+  const { count } = getGiftCountByChannel.get(channel);
+  return { gifts, total: count, page, limit };
+}
+
+export function fetchStatsByChannel(channel, sessionId) {
+  const allTime = getStatsByChannel.get(channel);
+  const session = sessionId ? getSessionStats.get(sessionId) : { totalGifts: 0, totalCoins: 0 };
+  return { allTime, session };
+}
+
+export function fetchLeaderboardByChannel(channel) {
+  return getLeaderboardByChannel.all(channel);
+}
+
+export function fetchPopularGiftsByChannel(channel) {
+  return getPopularGiftsByChannel.all(channel);
+}
+
 // --- Triggers ---
 
 db.exec(`

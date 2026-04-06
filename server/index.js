@@ -3,7 +3,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import routes from "./routes.js";
-import { connect, disconnect, getStatus } from "./tiktok.js";
+import { connectChannel, disconnectChannel, getChannelStatus, getAllChannels } from "./tiktok.js";
 import { createSession, closeSession, saveGift, fetchTriggerForGift } from "./db.js";
 
 const app = express();
@@ -16,6 +16,16 @@ app.use(cors());
 app.use(express.json());
 app.use("/api", routes);
 
+// List all active channels
+app.get("/api/channels", (req, res) => {
+  res.json(getAllChannels());
+});
+
+// Get single channel status
+app.get("/api/channels/:username/status", (req, res) => {
+  res.json(getChannelStatus(req.params.username));
+});
+
 app.post("/api/connect", async (req, res) => {
   const { username } = req.body;
   if (!username) {
@@ -23,15 +33,15 @@ app.post("/api/connect", async (req, res) => {
   }
 
   try {
-    await connect(username, {
+    await connectChannel(username, {
       onSessionId: (u) => {
         const id = createSession(u);
-        const { roomInfo } = getStatus();
-        io.emit("status", { connected: true, username: u, roomInfo });
+        const status = getChannelStatus(u);
+        io.emit("channel:status", status);
         return id;
       },
-      onGift: (data) => {
-        const { sessionId } = getStatus();
+      onGift: (data, channel) => {
+        const { sessionId } = getChannelStatus(channel);
         const gift = {
           username: data.uniqueId,
           nickname: data.nickname,
@@ -44,26 +54,23 @@ app.post("/api/connect", async (req, res) => {
           sessionId,
         };
 
-        // Streak gifts (giftType === 1): save only on repeatEnd
-        // Non-streak gifts: save immediately
         const isStreak = data.giftType === 1;
 
         if (isStreak && !data.repeatEnd) {
-          // Streak in progress — show on UI but don't save to DB yet
-          io.emit("gift:streak", { ...gift, createdAt: new Date().toISOString() });
+          io.emit("gift:streak", { ...gift, channel, createdAt: new Date().toISOString() });
           return;
         }
 
-        // Final streak event or non-streak gift — save to DB
         const id = saveGift(gift);
         const createdAt = new Date().toISOString();
-        io.emit("gift", { id, ...gift, createdAt });
+        io.emit("gift", { id, ...gift, channel, createdAt });
 
         // Fire trigger if configured
         const trigger = fetchTriggerForGift(gift.giftId);
         if (trigger) {
           const payload = {
             timestamp: createdAt,
+            channel,
             user: gift.nickname,
             username: gift.username,
             giftName: gift.giftName,
@@ -78,24 +85,25 @@ app.post("/api/connect", async (req, res) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           })
-            .then((r) => console.log(`Trigger fired: ${gift.giftName} → ${trigger.endpoint} (${r.status})`))
-            .catch((e) => console.error(`Trigger failed: ${gift.giftName} → ${trigger.endpoint}:`, e.message));
-          io.emit("trigger:fired", { giftId: gift.giftId, giftName: gift.giftName, endpoint: trigger.endpoint });
+            .then((r) => console.log(`Trigger [${channel}]: ${gift.giftName} → ${trigger.endpoint} (${r.status})`))
+            .catch((e) => console.error(`Trigger failed [${channel}]: ${e.message}`));
+          io.emit("trigger:fired", { giftId: gift.giftId, giftName: gift.giftName, endpoint: trigger.endpoint, channel });
         }
       },
-      onChat: (data) => {
+      onChat: (data, channel) => {
         io.emit("chat", {
           nickname: data.nickname,
           comment: data.comment,
           profilePic: data.profilePictureUrl,
+          channel,
         });
       },
-      onDisconnect: (oldSessionId) => {
+      onDisconnect: (oldSessionId, channel) => {
         if (oldSessionId) closeSession(oldSessionId);
-        io.emit("status", { connected: false, username: null });
+        io.emit("channel:status", { connected: false, username: channel, sessionId: null, roomInfo: null });
       },
     });
-    res.json({ connected: true, username });
+    res.json(getChannelStatus(username));
   } catch (err) {
     console.error("Connect error:", err);
     const message = err?.message || String(err) || "Failed to connect";
@@ -104,10 +112,14 @@ app.post("/api/connect", async (req, res) => {
 });
 
 app.post("/api/disconnect", async (req, res) => {
-  const oldSessionId = await disconnect();
+  const { username } = req.body;
+  if (!username) {
+    return res.status(400).json({ error: "username is required" });
+  }
+  const oldSessionId = await disconnectChannel(username);
   if (oldSessionId) closeSession(oldSessionId);
-  io.emit("status", { connected: false, username: null });
-  res.json({ connected: false });
+  io.emit("channel:status", { connected: false, username, sessionId: null, roomInfo: null });
+  res.json({ connected: false, username });
 });
 
 const PORT = process.env.PORT || 3000;
