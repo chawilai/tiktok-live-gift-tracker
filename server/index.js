@@ -5,6 +5,7 @@ import cors from "cors";
 import routes from "./routes.js";
 import { connectChannel, disconnectChannel, getChannelStatus, getAllChannels } from "./tiktok.js";
 import { createSession, closeSession, saveGift, fetchTriggerForGift } from "./db.js";
+import { cacheAvatar, cacheGiftIcon, CACHE_DIR } from "./image-cache.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -14,6 +15,7 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
+app.use("/cache", express.static(CACHE_DIR, { maxAge: "7d" }));
 app.use("/api", routes);
 
 // List all active channels
@@ -39,6 +41,8 @@ app.post("/api/connect", async (req, res) => {
         const id = createSession(u, roomInfo?.nickname, roomInfo?.profilePic);
         const status = getChannelStatus(u);
         io.emit("channel:status", status);
+        // Cache streamer avatar in background
+        if (roomInfo?.profilePic) cacheAvatar(u, roomInfo.profilePic);
         return id;
       },
       onGift: (data, channel) => {
@@ -65,6 +69,10 @@ app.post("/api/connect", async (req, res) => {
         const id = saveGift(gift);
         const createdAt = new Date().toISOString();
         io.emit("gift", { id, ...gift, channel, createdAt });
+
+        // Cache images in background
+        if (gift.profilePic) cacheAvatar(gift.username, gift.profilePic);
+        if (gift.giftPic) cacheGiftIcon(gift.giftId, gift.giftPic);
 
         // Fire trigger if configured
         const trigger = fetchTriggerForGift(gift.giftId);
