@@ -129,4 +129,65 @@ export function fetchPopularGifts() {
   return getPopularGifts.all();
 }
 
+// --- Triggers ---
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS triggers (
+    gift_id INTEGER PRIMARY KEY,
+    gift_name TEXT,
+    gift_pic TEXT,
+    diamond_count INTEGER DEFAULT 0,
+    endpoint TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+const upsertTrigger = db.prepare(`
+  INSERT INTO triggers (gift_id, gift_name, gift_pic, diamond_count, endpoint, enabled)
+  VALUES (@giftId, @giftName, @giftPic, @diamondCount, @endpoint, @enabled)
+  ON CONFLICT(gift_id) DO UPDATE SET
+    endpoint = @endpoint,
+    enabled = @enabled,
+    gift_name = @giftName,
+    gift_pic = @giftPic,
+    diamond_count = @diamondCount,
+    updated_at = CURRENT_TIMESTAMP
+`);
+const deleteTrigger = db.prepare("DELETE FROM triggers WHERE gift_id = ?");
+const getAllTriggers = db.prepare("SELECT * FROM triggers ORDER BY gift_name");
+const getTriggerByGiftId = db.prepare("SELECT * FROM triggers WHERE gift_id = ? AND enabled = 1");
+
+// Get distinct gift types we've seen
+const getKnownGifts = db.prepare(`
+  SELECT
+    gift_id as giftId,
+    gift_name as giftName,
+    gift_pic as giftPic,
+    diamond_count as diamondCount
+  FROM gifts
+  GROUP BY gift_id
+  ORDER BY gift_name
+`);
+
+export function saveTrigger(trigger) {
+  upsertTrigger.run(trigger);
+}
+
+export function removeTrigger(giftId) {
+  deleteTrigger.run(giftId);
+}
+
+export function fetchTriggers() {
+  return getAllTriggers.all();
+}
+
+export function fetchTriggerForGift(giftId) {
+  return getTriggerByGiftId.get(giftId) || null;
+}
+
+export function fetchKnownGifts() {
+  return getKnownGifts.all();
+}
+
 export default db;

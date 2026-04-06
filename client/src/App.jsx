@@ -6,6 +6,7 @@ import StatsCards from "./components/StatsCards.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import GiftLog from "./components/GiftLog.jsx";
 import PopularGifts from "./components/PopularGifts.jsx";
+import TriggerSettings from "./components/TriggerSettings.jsx";
 
 export default function App() {
   const socketRef = useRef(null);
@@ -14,6 +15,7 @@ export default function App() {
   const [stats, setStats] = useState({ allTime: { totalGifts: 0, totalCoins: 0 }, session: { totalGifts: 0, totalCoins: 0 } });
   const [leaderboard, setLeaderboard] = useState([]);
   const [popularGifts, setPopularGifts] = useState([]);
+  const [tab, setTab] = useState("dashboard");
 
   useEffect(() => {
     const socket = io();
@@ -21,7 +23,6 @@ export default function App() {
 
     socket.on("gift", (gift) => {
       setGifts((prev) => {
-        // Remove the LIVE streak row for this user+gift, replace with final
         const streakKey = `${gift.username}-${gift.giftId}`;
         const filtered = prev.filter(
           (g) => g.id || g._streakKey !== streakKey
@@ -33,7 +34,6 @@ export default function App() {
       fetchPopularGifts();
     });
 
-    // Streak in progress — update existing streak row or add new one
     socket.on("gift:streak", (gift) => {
       setGifts((prev) => {
         const streakKey = `${gift.username}-${gift.giftId}`;
@@ -96,9 +96,33 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3">
-          <h1 className="text-2xl font-bold tracking-tight">
-            <span className="text-neon-cyan">TikTok</span> Live Gift Tracker
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold tracking-tight">
+              <span className="text-neon-cyan">TikTok</span> Live Gift Tracker
+            </h1>
+            <nav className="flex gap-1">
+              <button
+                onClick={() => setTab("dashboard")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+                  tab === "dashboard"
+                    ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setTab("triggers")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+                  tab === "triggers"
+                    ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                Triggers
+              </button>
+            </nav>
+          </div>
           <ConnectionBar
             status={status}
             onConnect={handleConnect}
@@ -107,21 +131,27 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <LiveEmbed username={status.username} connected={status.connected} roomInfo={status.roomInfo} />
-          <PopularGifts entries={popularGifts} />
-        </div>
+      {tab === "dashboard" ? (
+        <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-6">
+            <LiveEmbed username={status.username} connected={status.connected} roomInfo={status.roomInfo} />
+            <PopularGifts entries={popularGifts} />
+          </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          <StatsCards stats={stats} />
-          <Leaderboard entries={leaderboard} />
-        </div>
+          <div className="lg:col-span-2 space-y-6">
+            <StatsCards stats={stats} />
+            <Leaderboard entries={leaderboard} />
+          </div>
 
-        <div className="lg:col-span-3">
-          <GiftLog gifts={gifts} />
-        </div>
-      </main>
+          <div className="lg:col-span-3">
+            <GiftLog gifts={gifts} />
+          </div>
+        </main>
+      ) : (
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          <TriggerSettings />
+        </main>
+      )}
     </div>
   );
 }

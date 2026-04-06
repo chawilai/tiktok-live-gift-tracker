@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import routes from "./routes.js";
 import { connect, disconnect, getStatus } from "./tiktok.js";
-import { createSession, closeSession, saveGift } from "./db.js";
+import { createSession, closeSession, saveGift, fetchTriggerForGift } from "./db.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -56,7 +56,32 @@ app.post("/api/connect", async (req, res) => {
 
         // Final streak event or non-streak gift — save to DB
         const id = saveGift(gift);
-        io.emit("gift", { id, ...gift, createdAt: new Date().toISOString() });
+        const createdAt = new Date().toISOString();
+        io.emit("gift", { id, ...gift, createdAt });
+
+        // Fire trigger if configured
+        const trigger = fetchTriggerForGift(gift.giftId);
+        if (trigger) {
+          const payload = {
+            timestamp: createdAt,
+            user: gift.nickname,
+            username: gift.username,
+            giftName: gift.giftName,
+            giftId: gift.giftId,
+            diamondCount: gift.diamondCount,
+            repeatCount: gift.repeatCount,
+            totalCoins: gift.diamondCount * gift.repeatCount,
+            thb: (gift.diamondCount * gift.repeatCount) / 4,
+          };
+          fetch(trigger.endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then((r) => console.log(`Trigger fired: ${gift.giftName} → ${trigger.endpoint} (${r.status})`))
+            .catch((e) => console.error(`Trigger failed: ${gift.giftName} → ${trigger.endpoint}:`, e.message));
+          io.emit("trigger:fired", { giftId: gift.giftId, giftName: gift.giftName, endpoint: trigger.endpoint });
+        }
       },
       onChat: (data) => {
         io.emit("chat", {
