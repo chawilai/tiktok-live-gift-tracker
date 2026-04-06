@@ -58,7 +58,9 @@ app.post("/api/connect", async (req, res) => {
     });
     res.json({ connected: true, username });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Connect error:", err);
+    const message = err?.message || String(err) || "Failed to connect";
+    res.status(500).json({ error: message });
   }
 });
 

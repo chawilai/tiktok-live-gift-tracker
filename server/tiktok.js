@@ -3,10 +3,11 @@ import { WebcastPushConnection } from "tiktok-live-connector";
 let connection = null;
 let currentUsername = null;
 let sessionId = null;
+let isConnected = false;
 
 export function getStatus() {
   return {
-    connected: connection !== null && connection.getState().isConnected,
+    connected: isConnected,
     username: currentUsername,
     sessionId,
   };
@@ -22,9 +23,11 @@ export async function connect(username, { onGift, onChat, onDisconnect, onSessio
 
   try {
     await connection.connect();
+    isConnected = true;
   } catch (err) {
     connection = null;
     currentUsername = null;
+    isConnected = false;
     throw err;
   }
 
@@ -42,6 +45,7 @@ export async function connect(username, { onGift, onChat, onDisconnect, onSessio
 
   connection.on("disconnected", () => {
     connection = null;
+    isConnected = false;
     const oldSessionId = sessionId;
     sessionId = null;
     if (onDisconnect) onDisconnect(oldSessionId);
@@ -65,6 +69,7 @@ export async function disconnect() {
     connection = null;
     currentUsername = null;
     sessionId = null;
+    isConnected = false;
   }
   return oldSessionId;
 }
