@@ -202,8 +202,9 @@ export default function App() {
             <span className="text-neon-cyan">TikTok</span> Live Gift Tracker
           </h1>
 
-          {/* Channel tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {/* Channel tabs + Settings */}
+          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1 min-w-0">
             {channels.map((ch) => {
               const chData = channelData[ch.username];
               const viewers = ch.roomInfo?.viewerCount || 0;
@@ -278,7 +279,8 @@ export default function App() {
               </button>
             </div>
 
-            <div className="ml-auto relative" ref={menuRef}>
+          </div>{/* end scroll container */}
+            <div className="relative shrink-0" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
