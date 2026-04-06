@@ -193,36 +193,55 @@ export default function App() {
           </h1>
 
           {/* Channel tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {channels.map((ch) => {
               const chData = channelData[ch.username];
               const viewers = ch.roomInfo?.viewerCount || 0;
               const coins = chData?.stats?.allTime?.totalCoins || 0;
+              const pic = ch.roomInfo?.profilePic;
+              const nick = ch.roomInfo?.nickname || ch.username;
+              const isActive = activeTab === ch.username;
               return (
-              <div key={ch.username} className="flex items-center">
+              <div key={ch.username} className="relative group">
                 <button
                   onClick={() => { setActiveTab(ch.username); loadChannelData(ch.username); }}
-                  className={`flex flex-col items-start px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
-                    activeTab === ch.username
-                      ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  className={`flex items-center gap-2.5 pl-2 pr-3 py-2 rounded-xl transition ${
+                    isActive
+                      ? "bg-slate-800 border border-neon-cyan/40 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
+                      : "bg-slate-900/50 border border-slate-800 hover:bg-slate-800 hover:border-slate-700"
                   }`}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${ch.connected ? "bg-neon-green" : "bg-slate-600"}`} />
-                    @{ch.username}
-                    {ch.connected && viewers > 0 && (
-                      <span className="text-[10px] font-mono text-slate-500">{viewers.toLocaleString()} viewers</span>
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    {pic ? (
+                      <img src={pic} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold">
+                        {ch.username.charAt(0).toUpperCase()}
+                      </div>
                     )}
-                  </span>
-                  {coins > 0 && (
-                    <span className="text-[10px] font-mono text-neon-cyan ml-3">{coins.toLocaleString()} coins · ~{Math.round(coins / 4)} ฿</span>
-                  )}
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${ch.connected ? "bg-neon-green" : "bg-slate-600"}`} />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex flex-col items-start min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-sm font-semibold truncate max-w-[100px] ${isActive ? "text-white" : "text-slate-300"}`}>
+                        {nick}
+                      </span>
+                      {ch.connected && viewers > 0 && (
+                        <span className="text-[10px] text-slate-500 font-mono">{viewers.toLocaleString()} viewers</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono text-neon-cyan">
+                      {coins > 0 ? `${coins.toLocaleString()} coins · ~${Math.round(coins / 4)} ฿` : `@${ch.username}`}
+                    </span>
+                  </div>
                 </button>
+                {/* Remove button */}
                 <button
                   onClick={() => handleRemoveChannel(ch.username)}
-                  className="text-slate-600 hover:text-red-400 px-1 text-xs transition"
-                  title="Remove channel"
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-800 border border-slate-700 text-slate-500 hover:text-red-400 hover:border-red-500/50 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                 >
                   x
                 </button>
