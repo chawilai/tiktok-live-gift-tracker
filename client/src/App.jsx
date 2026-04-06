@@ -297,7 +297,7 @@ export default function App() {
                 </svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-1 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="absolute right-0 mt-1 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-[100]">
                   <button
                     onClick={() => { setActiveTab("triggers"); setMenuOpen(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
