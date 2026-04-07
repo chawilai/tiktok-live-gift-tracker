@@ -3,6 +3,24 @@ import { WebcastPushConnection } from "tiktok-live-connector";
 // Map of username → { connection, sessionId, isConnected, roomInfo }
 const channels = new Map();
 
+async function fetchProfileInfo(username) {
+  try {
+    const res = await fetch(`https://www.tiktok.com/@${username}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+    });
+    const html = await res.text();
+    const nickMatch = html.match(/"nickname":"([^"]+)"/);
+    const avatarMatch = html.match(/"avatarThumb":"([^"]+)"/);
+    const avatar = avatarMatch?.[1]?.replace(/\\u002F/g, "/") || null;
+    return {
+      nickname: nickMatch?.[1] || null,
+      avatar,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function getChannelStatus(username) {
   const ch = channels.get(username);
   if (!ch) return { connected: false, username, sessionId: null, roomInfo: null };
@@ -48,6 +66,16 @@ export async function connectChannel(username, { onGift, onChat, onDisconnect, o
       profilePic: data.owner?.avatar_thumb?.url_list?.[0] || ri?.owner?.avatar_thumb?.url_list?.[0] || null,
       nickname: data.owner?.nickname || ri?.owner?.nickname || username,
     };
+
+    // If roomInfo is incomplete, fetch from TikTok profile page
+    if (ch.roomInfo.nickname === username || !ch.roomInfo.profilePic) {
+      fetchProfileInfo(username).then((info) => {
+        if (info) {
+          if (info.nickname) ch.roomInfo.nickname = info.nickname;
+          if (info.avatar) ch.roomInfo.profilePic = info.avatar;
+        }
+      });
+    }
   } catch (err) {
     throw err;
   }
