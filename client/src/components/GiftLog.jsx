@@ -1,7 +1,10 @@
 import { useRef, useEffect, useState } from "react";
 
 function formatTime(dateStr) {
-  const d = new Date(dateStr);
+  if (!dateStr) return "";
+  // DB stores UTC without 'Z' suffix — append it so browser converts to local time
+  const normalized = dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr.replace(" ", "T") + "Z";
+  const d = new Date(normalized);
   return d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 

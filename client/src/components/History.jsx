@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 
 function formatTime(dateStr) {
   if (!dateStr) return "-";
-  const d = new Date(dateStr);
+  const normalized = dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr.replace(" ", "T") + "Z";
+  const d = new Date(normalized);
   return d.toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
 }
 
