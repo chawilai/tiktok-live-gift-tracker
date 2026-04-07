@@ -118,7 +118,14 @@ app.post("/api/connect", async (req, res) => {
     res.json(getChannelStatus(username));
   } catch (err) {
     console.error("Connect error:", err);
-    const message = err?.message || String(err) || "Failed to connect";
+    const raw = err?.message || String(err) || "Failed to connect";
+    // Friendly error messages
+    let message = raw;
+    if (raw.includes("isn't online") || raw.includes("Unexpected server response")) {
+      message = "User is not live right now";
+    } else if (raw.includes("Sign Error") || raw.includes("503")) {
+      message = "TikTok server temporarily unavailable, try again";
+    }
     res.status(500).json({ error: message });
   }
 });
