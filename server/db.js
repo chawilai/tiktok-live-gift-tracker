@@ -296,4 +296,82 @@ export function fetchWatchlist() {
   return getAllWatch.all().map((r) => r.username);
 }
 
+// --- Comments ---
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER REFERENCES sessions(id),
+    username TEXT,
+    nickname TEXT,
+    profile_pic TEXT,
+    comment TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_comments_session ON comments(session_id);
+  CREATE INDEX IF NOT EXISTS idx_comments_created ON comments(created_at);
+`);
+
+const insertComment = db.prepare(`
+  INSERT INTO comments (session_id, username, nickname, profile_pic, comment)
+  VALUES (@sessionId, @username, @nickname, @profilePic, @comment)
+`);
+
+const getCommentsByChannel = db.prepare(`
+  SELECT c.* FROM comments c
+  JOIN sessions s ON c.session_id = s.id
+  WHERE s.tiktok_username = ?
+  ORDER BY c.created_at DESC LIMIT ?
+`);
+
+export function saveComment(comment) {
+  const result = insertComment.run(comment);
+  return result.lastInsertRowid;
+}
+
+export function fetchCommentsByChannel(channel, limit = 100) {
+  return getCommentsByChannel.all(channel, limit);
+}
+
+// --- Comment Triggers ---
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS comment_triggers (
+    keyword TEXT PRIMARY KEY,
+    label TEXT,
+    endpoint TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+const upsertCommentTrigger = db.prepare(`
+  INSERT INTO comment_triggers (keyword, label, endpoint, enabled)
+  VALUES (@keyword, @label, @endpoint, @enabled)
+  ON CONFLICT(keyword) DO UPDATE SET
+    label = @label,
+    endpoint = @endpoint,
+    enabled = @enabled,
+    updated_at = CURRENT_TIMESTAMP
+`);
+const deleteCommentTrigger = db.prepare("DELETE FROM comment_triggers WHERE keyword = ?");
+const getAllCommentTriggers = db.prepare("SELECT * FROM comment_triggers ORDER BY label");
+const getCommentTriggerByKeyword = db.prepare("SELECT * FROM comment_triggers WHERE keyword = ? AND enabled = 1");
+
+export function saveCommentTrigger(trigger) {
+  upsertCommentTrigger.run(trigger);
+}
+
+export function removeCommentTrigger(keyword) {
+  deleteCommentTrigger.run(keyword);
+}
+
+export function fetchCommentTriggers() {
+  return getAllCommentTriggers.all();
+}
+
+export function fetchCommentTriggerByKeyword(keyword) {
+  return getCommentTriggerByKeyword.get(keyword) || null;
+}
+
 export default db;

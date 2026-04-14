@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import routes from "./routes.js";
 import { connectChannel, disconnectChannel, getChannelStatus, getAllChannels } from "./tiktok.js";
-import { createSession, closeSession, saveGift, fetchTriggerForGift } from "./db.js";
+import { createSession, closeSession, saveGift, fetchTriggerForGift, saveComment, fetchCommentTriggerByKeyword } from "./db.js";
 import { cacheAvatar, cacheGiftIcon, CACHE_DIR } from "./image-cache.js";
 
 const app = express();
@@ -100,12 +100,51 @@ app.post("/api/connect", async (req, res) => {
         }
       },
       onChat: (data, channel) => {
-        io.emit("chat", {
+        const { sessionId } = getChannelStatus(channel);
+        const comment = {
+          sessionId,
+          username: data.uniqueId,
           nickname: data.nickname,
-          comment: data.comment,
           profilePic: data.profilePictureUrl,
-          channel,
-        });
+          comment: data.comment,
+        };
+
+        let id = null;
+        try {
+          id = saveComment(comment);
+        } catch (e) {
+          console.error(`Save comment failed [${channel}]:`, e.message);
+        }
+
+        const createdAt = new Date().toISOString();
+        io.emit("comment", { id, ...comment, channel, createdAt });
+
+        if (comment.profilePic) cacheAvatar(comment.username, comment.profilePic);
+
+        // Check comment trigger — exact whole-comment match (case-insensitive, trimmed)
+        const normalized = (data.comment || "").trim().toLowerCase();
+        if (normalized) {
+          const trigger = fetchCommentTriggerByKeyword(normalized);
+          if (trigger) {
+            const payload = {
+              timestamp: createdAt,
+              channel,
+              user: comment.nickname,
+              username: comment.username,
+              comment: data.comment,
+              keyword: trigger.keyword,
+              label: trigger.label,
+            };
+            fetch(trigger.endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then((r) => console.log(`Comment trigger [${channel}]: "${normalized}" → ${trigger.endpoint} (${r.status})`))
+              .catch((e) => console.error(`Comment trigger failed [${channel}]: ${e.message}`));
+            io.emit("comment-trigger:fired", { keyword: trigger.keyword, label: trigger.label, endpoint: trigger.endpoint, user: comment.nickname, username: comment.username, channel });
+          }
+        }
       },
       onViewerUpdate: (count, channel) => {
         io.emit("channel:viewers", { username: channel, viewerCount: count });

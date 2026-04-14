@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist, fetchHistory } from "./db.js";
+import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist, fetchHistory, fetchCommentsByChannel, fetchCommentTriggers, saveCommentTrigger, removeCommentTrigger } from "./db.js";
 import { WebcastPushConnection } from "tiktok-live-connector";
 import { getChannelStatus } from "./tiktok.js";
 
@@ -89,6 +89,40 @@ router.post("/watchlist", (req, res) => {
 
 router.delete("/watchlist/:username", (req, res) => {
   removeFromWatchlist(req.params.username);
+  res.json({ ok: true });
+});
+
+// --- Comments ---
+
+router.get("/comments", (req, res) => {
+  const channel = req.query.channel;
+  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  if (!channel) return res.status(400).json({ error: "channel is required" });
+  res.json(fetchCommentsByChannel(channel, limit));
+});
+
+// --- Comment Triggers ---
+
+router.get("/comment-triggers", (req, res) => {
+  res.json(fetchCommentTriggers());
+});
+
+router.put("/comment-triggers", (req, res) => {
+  const { label, endpoint, enabled } = req.body;
+  const raw = (label || "").trim();
+  if (!raw) return res.status(400).json({ error: "label is required" });
+  if (!endpoint) return res.status(400).json({ error: "endpoint is required" });
+  saveCommentTrigger({
+    keyword: raw.toLowerCase(),
+    label: raw,
+    endpoint,
+    enabled: enabled !== undefined ? (enabled ? 1 : 0) : 1,
+  });
+  res.json({ ok: true });
+});
+
+router.delete("/comment-triggers/:keyword", (req, res) => {
+  removeCommentTrigger(decodeURIComponent(req.params.keyword));
   res.json({ ok: true });
 });
 

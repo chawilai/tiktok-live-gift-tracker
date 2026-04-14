@@ -5,8 +5,10 @@ import LiveEmbed from "./components/LiveEmbed.jsx";
 import StatsCards from "./components/StatsCards.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import GiftLog from "./components/GiftLog.jsx";
+import CommentLog from "./components/CommentLog.jsx";
 import PopularGifts from "./components/PopularGifts.jsx";
 import TriggerSettings from "./components/TriggerSettings.jsx";
+import CommentTriggerSettings from "./components/CommentTriggerSettings.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import History from "./components/History.jsx";
 
@@ -14,7 +16,8 @@ export default function App() {
   const socketRef = useRef(null);
   const [channels, setChannels] = useState([]); // [{ username, connected, roomInfo, sessionId }]
   const [activeTab, setActiveTab] = useState(null); // username or "triggers"
-  const [channelData, setChannelData] = useState({}); // { username: { gifts, stats, leaderboard, popularGifts } }
+  const [channelData, setChannelData] = useState({}); // { username: { gifts, comments, stats, leaderboard, popularGifts } }
+  const [commentTriggerKeywords, setCommentTriggerKeywords] = useState([]);
   const [addInput, setAddInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -61,6 +64,14 @@ export default function App() {
       });
     });
 
+    socket.on("comment", (comment) => {
+      const ch = comment.channel;
+      setChannelData((prev) => {
+        const d = prev[ch] || { gifts: [], comments: [], stats: null, leaderboard: [], popularGifts: [] };
+        return { ...prev, [ch]: { ...d, comments: [comment, ...(d.comments || [])].slice(0, 300) } };
+      });
+    });
+
     socket.on("channel:status", (status) => {
       setChannels((prev) => {
         const idx = prev.findIndex((c) => c.username === status.username);
@@ -83,6 +94,18 @@ export default function App() {
       );
     });
 
+    // Load comment trigger keywords (for highlight in CommentLog)
+    fetch("/api/comment-triggers").then((r) => r.json()).then((list) => {
+      setCommentTriggerKeywords(list.map((t) => t.keyword));
+    }).catch(() => {});
+
+    socket.on("comment-trigger:fired", () => {
+      // refresh keyword list when triggers change externally
+      fetch("/api/comment-triggers").then((r) => r.json()).then((list) => {
+        setCommentTriggerKeywords(list.map((t) => t.keyword));
+      }).catch(() => {});
+    });
+
     // Load existing channels
     fetch("/api/channels").then((r) => r.json()).then((chs) => {
       setChannels(chs);
@@ -102,7 +125,27 @@ export default function App() {
     fetchChannelStats(username);
     fetchChannelLeaderboard(username);
     fetchChannelPopularGifts(username);
+    fetchChannelComments(username);
   };
+
+  const fetchChannelComments = (ch) =>
+    fetch(`/api/comments?channel=${ch}&limit=200`).then((r) => r.json()).then((list) =>
+      setChannelData((prev) => ({
+        ...prev,
+        [ch]: {
+          ...(prev[ch] || {}),
+          comments: list.map((c) => ({
+            id: c.id,
+            username: c.username,
+            nickname: c.nickname,
+            profilePic: c.profile_pic,
+            comment: c.comment,
+            createdAt: c.created_at,
+            channel: ch,
+          })),
+        },
+      }))
+    ).catch(() => {});
 
   const fetchChannelGifts = (ch) =>
     fetch(`/api/gifts?channel=${ch}&limit=200`).then((r) => r.json()).then((d) =>
@@ -203,7 +246,7 @@ export default function App() {
   };
 
   const activeChannel = channels.find((c) => c.username === activeTab);
-  const data = channelData[activeTab] || { gifts: [], stats: null, leaderboard: [], popularGifts: [] };
+  const data = channelData[activeTab] || { gifts: [], comments: [], stats: null, leaderboard: [], popularGifts: [] };
   const defaultStats = { allTime: { totalGifts: 0, totalCoins: 0 }, session: { totalGifts: 0, totalCoins: 0 } };
 
   return (
@@ -296,7 +339,7 @@ export default function App() {
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  ["triggers", "watchlist", "history"].includes(activeTab)
+                  ["triggers", "comment-triggers", "watchlist", "history"].includes(activeTab)
                     ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
@@ -318,7 +361,15 @@ export default function App() {
                       activeTab === "triggers" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
                     }`}
                   >
-                    <span>Triggers</span>
+                    <span>Gift Triggers</span>
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab("comment-triggers"); setMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
+                      activeTab === "comment-triggers" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
+                    }`}
+                  >
+                    <span>Comment Triggers</span>
                   </button>
                   <button
                     onClick={() => { setActiveTab("watchlist"); setMenuOpen(false); }}
@@ -346,6 +397,10 @@ export default function App() {
       {activeTab === "triggers" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
           <TriggerSettings />
+        </main>
+      ) : activeTab === "comment-triggers" ? (
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          <CommentTriggerSettings />
         </main>
       ) : activeTab === "watchlist" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
@@ -393,8 +448,9 @@ export default function App() {
               <Leaderboard entries={data.leaderboard || []} />
             </div>
 
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
               <GiftLog gifts={data.gifts || []} />
+              <CommentLog comments={data.comments || []} triggerKeywords={commentTriggerKeywords} />
             </div>
           </div>
         </main>
