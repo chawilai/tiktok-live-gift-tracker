@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist, fetchHistory, fetchCommentsByChannel, fetchCommentTriggers, saveCommentTrigger, removeCommentTrigger } from "./db.js";
+import { fetchGifts, fetchStats, fetchLeaderboard, fetchPopularGifts, fetchTriggers, fetchKnownGifts, saveTrigger, removeTrigger, fetchGiftsByChannel, fetchStatsByChannel, fetchLeaderboardByChannel, fetchPopularGiftsByChannel, addToWatchlist, removeFromWatchlist, fetchWatchlist, fetchHistory, fetchCommentsByChannel, fetchCommentTriggers, saveCommentTrigger, removeCommentTrigger, fetchJoinsByChannel, getAppSetting, setAppSetting } from "./db.js";
 import { WebcastPushConnection } from "tiktok-live-connector";
 import { getChannelStatus } from "./tiktok.js";
 
@@ -123,6 +123,25 @@ router.put("/comment-triggers", (req, res) => {
 
 router.delete("/comment-triggers/:keyword", (req, res) => {
   removeCommentTrigger(decodeURIComponent(req.params.keyword));
+  res.json({ ok: true });
+});
+
+// --- Joins ---
+
+router.get("/joins", (req, res) => {
+  const channel = req.query.channel;
+  const limit = Math.min(parseInt(req.query.limit) || 200, 500);
+  if (!channel) return res.status(400).json({ error: "channel is required" });
+  res.json(fetchJoinsByChannel(channel, limit));
+});
+
+router.get("/settings/join-webhook", (req, res) => {
+  res.json({ url: getAppSetting("join_webhook_url") || "" });
+});
+
+router.put("/settings/join-webhook", (req, res) => {
+  const { url } = req.body;
+  setAppSetting("join_webhook_url", (url || "").trim());
   res.json({ ok: true });
 });
 

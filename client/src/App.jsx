@@ -6,9 +6,11 @@ import StatsCards from "./components/StatsCards.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import GiftLog from "./components/GiftLog.jsx";
 import CommentLog from "./components/CommentLog.jsx";
+import JoinLog from "./components/JoinLog.jsx";
 import PopularGifts from "./components/PopularGifts.jsx";
 import TriggerSettings from "./components/TriggerSettings.jsx";
 import CommentTriggerSettings from "./components/CommentTriggerSettings.jsx";
+import JoinWebhookSettings from "./components/JoinWebhookSettings.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import History from "./components/History.jsx";
 
@@ -67,8 +69,16 @@ export default function App() {
     socket.on("comment", (comment) => {
       const ch = comment.channel;
       setChannelData((prev) => {
-        const d = prev[ch] || { gifts: [], comments: [], stats: null, leaderboard: [], popularGifts: [] };
+        const d = prev[ch] || { gifts: [], comments: [], joins: [], stats: null, leaderboard: [], popularGifts: [] };
         return { ...prev, [ch]: { ...d, comments: [comment, ...(d.comments || [])].slice(0, 300) } };
+      });
+    });
+
+    socket.on("join", (join) => {
+      const ch = join.channel;
+      setChannelData((prev) => {
+        const d = prev[ch] || { gifts: [], comments: [], joins: [], stats: null, leaderboard: [], popularGifts: [] };
+        return { ...prev, [ch]: { ...d, joins: [join, ...(d.joins || [])].slice(0, 300) } };
       });
     });
 
@@ -126,7 +136,27 @@ export default function App() {
     fetchChannelLeaderboard(username);
     fetchChannelPopularGifts(username);
     fetchChannelComments(username);
+    fetchChannelJoins(username);
   };
+
+  const fetchChannelJoins = (ch) =>
+    fetch(`/api/joins?channel=${ch}&limit=200`).then((r) => r.json()).then((list) =>
+      setChannelData((prev) => ({
+        ...prev,
+        [ch]: {
+          ...(prev[ch] || {}),
+          joins: list.map((j) => ({
+            id: j.id,
+            username: j.username,
+            nickname: j.nickname,
+            profilePic: j.profile_pic,
+            userId: j.user_id,
+            createdAt: j.created_at,
+            channel: ch,
+          })),
+        },
+      }))
+    ).catch(() => {});
 
   const fetchChannelComments = (ch) =>
     fetch(`/api/comments?channel=${ch}&limit=200`).then((r) => r.json()).then((list) =>
@@ -246,7 +276,7 @@ export default function App() {
   };
 
   const activeChannel = channels.find((c) => c.username === activeTab);
-  const data = channelData[activeTab] || { gifts: [], comments: [], stats: null, leaderboard: [], popularGifts: [] };
+  const data = channelData[activeTab] || { gifts: [], comments: [], joins: [], stats: null, leaderboard: [], popularGifts: [] };
   const defaultStats = { allTime: { totalGifts: 0, totalCoins: 0 }, session: { totalGifts: 0, totalCoins: 0 } };
 
   return (
@@ -339,7 +369,7 @@ export default function App() {
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  ["triggers", "comment-triggers", "watchlist", "history"].includes(activeTab)
+                  ["triggers", "comment-triggers", "join-webhook", "watchlist", "history"].includes(activeTab)
                     ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50"
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
@@ -372,6 +402,14 @@ export default function App() {
                     <span>Comment Triggers</span>
                   </button>
                   <button
+                    onClick={() => { setActiveTab("join-webhook"); setMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
+                      activeTab === "join-webhook" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
+                    }`}
+                  >
+                    <span>Join Webhook</span>
+                  </button>
+                  <button
                     onClick={() => { setActiveTab("watchlist"); setMenuOpen(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition ${
                       activeTab === "watchlist" ? "text-neon-cyan bg-slate-700/50" : "text-slate-300 hover:bg-slate-700/50"
@@ -401,6 +439,10 @@ export default function App() {
       ) : activeTab === "comment-triggers" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
           <CommentTriggerSettings />
+        </main>
+      ) : activeTab === "join-webhook" ? (
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          <JoinWebhookSettings />
         </main>
       ) : activeTab === "watchlist" ? (
         <main className="max-w-3xl mx-auto px-4 py-6">
@@ -451,6 +493,10 @@ export default function App() {
             <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
               <GiftLog gifts={data.gifts || []} />
               <CommentLog comments={data.comments || []} triggerKeywords={commentTriggerKeywords} />
+            </div>
+
+            <div className="lg:col-span-3">
+              <JoinLog joins={data.joins || []} />
             </div>
           </div>
         </main>

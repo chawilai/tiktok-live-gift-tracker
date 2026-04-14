@@ -45,7 +45,7 @@ export function getAllChannels() {
   return list;
 }
 
-export async function connectChannel(username, { onGift, onChat, onDisconnect, onSessionId, onViewerUpdate }) {
+export async function connectChannel(username, { onGift, onChat, onMember, onDisconnect, onSessionId, onViewerUpdate }) {
   // Disconnect existing connection for this username if any
   if (channels.has(username)) {
     await disconnectChannel(username);
@@ -92,6 +92,10 @@ export async function connectChannel(username, { onGift, onChat, onDisconnect, o
 
   connection.on("chat", (data) => {
     if (onChat) onChat(data, username);
+  });
+
+  connection.on("member", (data) => {
+    if (onMember) onMember(data, username);
   });
 
   connection.on("roomUser", (data) => {

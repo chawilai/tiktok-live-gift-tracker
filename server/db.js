@@ -374,4 +374,66 @@ export function fetchCommentTriggerByKeyword(keyword) {
   return getCommentTriggerByKeyword.get(keyword) || null;
 }
 
+// --- Joins ---
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS joins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER REFERENCES sessions(id),
+    username TEXT,
+    nickname TEXT,
+    profile_pic TEXT,
+    user_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_joins_session ON joins(session_id);
+  CREATE INDEX IF NOT EXISTS idx_joins_created ON joins(created_at);
+`);
+
+const insertJoin = db.prepare(`
+  INSERT INTO joins (session_id, username, nickname, profile_pic, user_id)
+  VALUES (@sessionId, @username, @nickname, @profilePic, @userId)
+`);
+
+const getJoinsByChannel = db.prepare(`
+  SELECT j.* FROM joins j
+  JOIN sessions s ON j.session_id = s.id
+  WHERE s.tiktok_username = ?
+  ORDER BY j.created_at DESC LIMIT ?
+`);
+
+export function saveJoin(join) {
+  const result = insertJoin.run(join);
+  return result.lastInsertRowid;
+}
+
+export function fetchJoinsByChannel(channel, limit = 200) {
+  return getJoinsByChannel.all(channel, limit);
+}
+
+// --- App settings (key-value) ---
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+const upsertAppSetting = db.prepare(`
+  INSERT INTO app_settings (key, value) VALUES (@key, @value)
+  ON CONFLICT(key) DO UPDATE SET value = @value, updated_at = CURRENT_TIMESTAMP
+`);
+const getAppSettingStmt = db.prepare("SELECT value FROM app_settings WHERE key = ?");
+
+export function setAppSetting(key, value) {
+  upsertAppSetting.run({ key, value });
+}
+
+export function getAppSetting(key) {
+  const row = getAppSettingStmt.get(key);
+  return row ? row.value : null;
+}
+
 export default db;

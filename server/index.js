@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import routes from "./routes.js";
 import { connectChannel, disconnectChannel, getChannelStatus, getAllChannels } from "./tiktok.js";
-import { createSession, closeSession, saveGift, fetchTriggerForGift, saveComment, fetchCommentTriggerByKeyword } from "./db.js";
+import { createSession, closeSession, saveGift, fetchTriggerForGift, saveComment, fetchCommentTriggerByKeyword, saveJoin, getAppSetting } from "./db.js";
 import { cacheAvatar, cacheGiftIcon, CACHE_DIR } from "./image-cache.js";
 
 const app = express();
@@ -144,6 +144,48 @@ app.post("/api/connect", async (req, res) => {
               .catch((e) => console.error(`Comment trigger failed [${channel}]: ${e.message}`));
             io.emit("comment-trigger:fired", { keyword: trigger.keyword, label: trigger.label, endpoint: trigger.endpoint, user: comment.nickname, username: comment.username, channel });
           }
+        }
+      },
+      onMember: (data, channel) => {
+        const { sessionId } = getChannelStatus(channel);
+        const join = {
+          sessionId,
+          username: data.uniqueId,
+          nickname: data.nickname,
+          profilePic: data.profilePictureUrl,
+          userId: data.userId ? String(data.userId) : null,
+        };
+
+        let id = null;
+        try {
+          id = saveJoin(join);
+        } catch (e) {
+          console.error(`Save join failed [${channel}]:`, e.message);
+        }
+
+        const createdAt = new Date().toISOString();
+        io.emit("join", { id, ...join, channel, createdAt });
+
+        if (join.profilePic) cacheAvatar(join.username, join.profilePic);
+
+        // Fire global join webhook if configured
+        const url = getAppSetting("join_webhook_url");
+        if (url) {
+          const payload = {
+            timestamp: createdAt,
+            channel,
+            user: join.nickname,
+            username: join.username,
+            userId: join.userId,
+            profilePic: join.profilePic,
+          };
+          fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then((r) => console.log(`Join webhook [${channel}]: ${join.username} → ${url} (${r.status})`))
+            .catch((e) => console.error(`Join webhook failed [${channel}]: ${e.message}`));
         }
       },
       onViewerUpdate: (count, channel) => {
