@@ -4,7 +4,8 @@ import { dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = `${__dirname}/../data/gifts.db`;
+// Tests set DB_PATH=:memory: so they never touch the real database
+const DB_PATH = process.env.DB_PATH || `${__dirname}/../data/gifts.db`;
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
