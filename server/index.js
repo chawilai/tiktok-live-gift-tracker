@@ -3,15 +3,17 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import routes from "./routes.js";
-import { connectChannel, disconnectChannel, getChannelStatus, getAllChannels } from "./tiktok.js";
+import { connectChannel, disconnectChannel, getChannelStatus, getAllChannels, CooldownError } from "./tiktok.js";
 import { createSession, closeSession, saveGift, fetchTriggerForGift, saveComment, fetchCommentTriggerByKeyword, saveJoin, getAppSetting } from "./db.js";
-import { cacheAvatar, cacheGiftIcon, CACHE_DIR } from "./image-cache.js";
+import { cacheAvatar, cacheGiftIcon, setAvatarUpgradedHandler, CACHE_DIR } from "./image-cache.js";
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: "*" },
 });
+
+setAvatarUpgradedHandler((username, url) => io.emit("avatar:updated", { username, url }));
 
 app.use(cors());
 app.use(express.json());
@@ -29,7 +31,7 @@ app.get("/api/channels/:username/status", (req, res) => {
 });
 
 app.post("/api/connect", async (req, res) => {
-  const { username } = req.body;
+  const { username, force } = req.body;
   if (!username) {
     return res.status(400).json({ error: "username is required" });
   }
@@ -188,6 +190,45 @@ app.post("/api/connect", async (req, res) => {
             .catch((e) => console.error(`Join webhook failed [${channel}]: ${e.message}`));
         }
       },
+      onLike: (data, channel) => {
+        const like = {
+          channel,
+          uniqueId: data.uniqueId,
+          username: data.uniqueId,
+          nickname: data.nickname,
+          profilePic: data.profilePictureUrl,
+          likeCount: data.likeCount || 0,
+          totalLikeCount: data.totalLikeCount || 0,
+          createdAt: new Date().toISOString(),
+        };
+        io.emit("like", like);
+        if (like.profilePic) cacheAvatar(like.username, like.profilePic);
+      },
+      onShare: (data, channel) => {
+        const share = {
+          channel,
+          uniqueId: data.uniqueId,
+          username: data.uniqueId,
+          nickname: data.nickname,
+          profilePic: data.profilePictureUrl,
+          shareCount: data.shareCount || null,
+          createdAt: new Date().toISOString(),
+        };
+        io.emit("share", share);
+        if (share.profilePic) cacheAvatar(share.username, share.profilePic);
+      },
+      onFollow: (data, channel) => {
+        const follow = {
+          channel,
+          uniqueId: data.uniqueId,
+          username: data.uniqueId,
+          nickname: data.nickname,
+          profilePic: data.profilePictureUrl,
+          createdAt: new Date().toISOString(),
+        };
+        io.emit("follow", follow);
+        if (follow.profilePic) cacheAvatar(follow.username, follow.profilePic);
+      },
       onViewerUpdate: (count, channel) => {
         io.emit("channel:viewers", { username: channel, viewerCount: count });
       },
@@ -195,19 +236,28 @@ app.post("/api/connect", async (req, res) => {
         if (oldSessionId) closeSession(oldSessionId);
         io.emit("channel:status", { connected: false, username: channel, sessionId: null, roomInfo: null });
       },
-    });
+    }, { force: !!force });
     res.json(getChannelStatus(username));
   } catch (err) {
+    if (err instanceof CooldownError) {
+      const retryAfter = Math.ceil(err.retryAfterMs / 1000);
+      res.set("Retry-After", String(retryAfter));
+      return res.status(429).json({ error: `เชื่อมต่อถี่เกินไป รออีก ${retryAfter} วินาที`, retryAfter });
+    }
     console.error("Connect error:", err);
-    const raw = err?.message || String(err) || "Failed to connect";
+    // FetchIsLiveError etc. wrap the real causes in err.errors with a bare "Error" message
+    const details = [err?.message, ...(err?.errors || []).map((e) => e?.message || String(e))].filter(Boolean);
+    const raw = [err?.name, ...details].join(" | ") || "Failed to connect";
     // Friendly error messages
     let message = raw;
     if (raw.includes("isn't online") || raw.includes("Unexpected server response")) {
       message = "User is not live right now";
+    } else if (raw.includes("FetchIsLiveError") || raw.includes("SIGI_STATE") || raw.includes("403") || raw.includes("lack of permission")) {
+      message = "TikTok บล็อกชั่วคราว (403) รอสักพักแล้วลองใหม่";
     } else if (raw.includes("Sign Error") || raw.includes("503")) {
       message = "TikTok server temporarily unavailable, try again";
     }
-    res.status(500).json({ error: message });
+    res.status(500).json({ error: message, details });
   }
 });
 
